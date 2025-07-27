@@ -16,6 +16,7 @@ from contextlib import contextmanager
 from loguru import logger
 import pandas as pd
 import numpy as np
+from src.utils.config_loader import config
 
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -64,10 +65,13 @@ class FunctionProfile:
 class SystemMonitor:
     """系统监控器"""
     
-    def __init__(self, collection_interval: int = 60):
+    def __init__(self, collection_interval: int = None):
         """初始化系统监控器"""
+        if collection_interval is None:
+            collection_interval = config.get('monitoring_params.collection_interval', 60)
         self.collection_interval = collection_interval
-        self.metrics_history = defaultdict(lambda: deque(maxlen=1000))
+        max_history = config.get('monitoring_params.metrics_max_history', 1000)
+        self.metrics_history = defaultdict(lambda: deque(maxlen=max_history))
         self.running = False
         self.monitor_thread = None
         self.lock = threading.Lock()
@@ -184,8 +188,10 @@ class SystemMonitor:
         return sorted(metrics, key=lambda x: x.timestamp)
     
     def get_metric_summary(self, metric_name: str, 
-                          window_minutes: int = 60) -> Dict[str, float]:
+                          window_minutes: int = None) -> Dict[str, float]:
         """获取指标摘要"""
+        if window_minutes is None:
+            window_minutes = config.get('monitoring_params.metric_window_minutes', 60)
         end_time = datetime.now()
         start_time = end_time - timedelta(minutes=window_minutes)
         
@@ -326,9 +332,11 @@ class FunctionProfiler:
         report.append(f"总函数数: {len(profiles)}")
         report.append(f"生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         report.append("\n排名 | 函数名 | 调用次数 | 总时间(s) | 平均时间(ms) | 最大时间(ms) | 错误次数")
-        report.append("-" * 100)
+        separator_length = config.get('monitoring_params.report_separator_length', 100)
+        report.append("-" * separator_length)
         
-        for i, profile in enumerate(profiles[:20], 1):
+        max_profiles = config.get('monitoring_params.slow_query_limit', 20)
+        for i, profile in enumerate(profiles[:max_profiles], 1):
             report.append(
                 f"{i:4d} | {profile.function_name[:20]:20s} | "
                 f"{profile.call_count:8d} | {profile.total_time:9.3f} | "
@@ -352,7 +360,8 @@ class DatabaseProfiler:
             'error_count': 0,
             'last_executed': None
         })
-        self.slow_queries = deque(maxlen=100)
+        max_queries = config.get('monitoring_params.metric_retention', 100)
+        self.slow_queries = deque(maxlen=max_queries)
         self.lock = threading.Lock()
         self.slow_query_threshold = 1.0  # 慢查询阈值（秒）
     
@@ -381,8 +390,9 @@ class DatabaseProfiler:
         normalized = ' '.join(query.split())
         
         # 截取前100个字符作为键
-        if len(normalized) > 100:
-            normalized = normalized[:100] + "..."
+        max_query_length = config.get('monitoring_params.metric_retention', 100)
+        if len(normalized) > max_query_length:
+            normalized = normalized[:max_query_length] + "..."
         
         return normalized
     
@@ -427,8 +437,10 @@ class DatabaseProfiler:
         
         return stats_list
     
-    def get_slow_queries(self, limit: int = 20) -> List[Dict[str, Any]]:
+    def get_slow_queries(self, limit: int = None) -> List[Dict[str, Any]]:
         """获取慢查询"""
+        if limit is None:
+            limit = config.get('monitoring_params.slow_query_limit', 20)
         with self.lock:
             slow_queries = list(self.slow_queries)
         
@@ -539,8 +551,10 @@ class PerformanceStorage:
                     profile.max_time, profile.error_count, profile.last_called.isoformat()
                 ))
     
-    def cleanup_old_data(self, days: int = 30):
+    def cleanup_old_data(self, days: int = None):
         """清理旧数据"""
+        if days is None:
+            days = config.get('monitoring_params.data_retention_days', 30)
         cutoff_date = datetime.now() - timedelta(days=days)
         
         with sqlite3.connect(self.db_path) as conn:
@@ -569,7 +583,7 @@ class PerformanceManager:
         self.storage = PerformanceStorage(storage_path)
         
         # 定期保存数据的线程
-        self.save_interval = 300  # 5分钟
+        self.save_interval = config.get('monitoring_params.save_interval', 300)  # 5分钟
         self.save_thread = None
         self.running = False
     
@@ -590,7 +604,8 @@ class PerformanceManager:
         self.running = False
         
         if self.save_thread:
-            self.save_thread.join(timeout=5)
+            join_timeout = config.get('monitoring_params.thread_join_timeout', 5)
+            self.save_thread.join(timeout=join_timeout)
         
         # 最后保存一次数据
         self._save_data()
@@ -613,7 +628,8 @@ class PerformanceManager:
             # 保存系统指标
             metrics = self.system_monitor.get_metrics()
             if metrics:
-                self.storage.save_metrics(metrics[-100:])  # 只保存最近100条
+                retention_count = config.get('monitoring_params.metric_retention', 100)
+                self.storage.save_metrics(metrics[-retention_count:])  # 只保存最近N条
             
             # 保存函数性能数据
             profiles = self.function_profiler.get_profiles()
@@ -652,8 +668,10 @@ class PerformanceManager:
             health['status'] = 'critical'
         
         # 检查慢查询
-        slow_queries = self.db_profiler.get_slow_queries(5)
-        if len(slow_queries) > 10:
+        slow_query_check_limit = config.get('monitoring_params.slow_query_check_limit', 5)
+        slow_query_threshold = config.get('monitoring_params.slow_query_count_threshold', 10)
+        slow_queries = self.db_profiler.get_slow_queries(slow_query_check_limit)
+        if len(slow_queries) > slow_query_threshold:
             health['issues'].append('存在大量慢查询')
             if health['status'] == 'healthy':
                 health['status'] = 'warning'
@@ -682,7 +700,8 @@ class PerformanceManager:
         report.append("\n=== 系统指标摘要 (最近1小时) ===")
         metrics = ['cpu_usage_percent', 'memory_usage_percent', 'disk_usage_percent']
         for metric in metrics:
-            summary = self.system_monitor.get_metric_summary(metric, 60)
+            window_minutes = config.get('monitoring_params.evaluation_window', 60)
+            summary = self.system_monitor.get_metric_summary(metric, window_minutes)
             if summary:
                 report.append(f"{metric}: 当前={summary['latest']:.1f}%, "
                             f"平均={summary['mean']:.1f}%, 最大={summary['max']:.1f}%")
@@ -704,14 +723,17 @@ class PerformanceManager:
         if slow_queries:
             for i, query in enumerate(slow_queries, 1):
                 report.append(f"{i}. 执行时间: {query['execution_time']:.3f}s")
-                report.append(f"   查询: {query['query'][:100]}...")
+                max_query_display = config.get('monitoring_params.metric_retention', 100)
+                report.append(f"   查询: {query['query'][:max_query_display]}...")
         else:
             report.append("暂无慢查询记录")
         
         return "\n".join(report)
     
-    def cleanup_old_data(self, days: int = 30):
+    def cleanup_old_data(self, days: int = None):
         """清理旧数据"""
+        if days is None:
+            days = config.get('monitoring_params.data_retention_days', 30)
         self.storage.cleanup_old_data(days)
 
 # 全局性能管理器实例
@@ -738,7 +760,8 @@ if __name__ == '__main__':
     @profile
     def test_function_2():
         """测试函数2"""
-        time.sleep(0.05)
+        sleep_interval = 0.05  # 短暂睡眠间隔，可以保持硬编码
+        time.sleep(sleep_interval)
         return "result2"
     
     @profile

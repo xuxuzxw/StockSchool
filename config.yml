@@ -1,0 +1,216 @@
+# config.yml
+# 全局参数配置文件
+
+# 因子计算参数
+factor_params:
+  # 最小数据天数要求
+  min_data_days: 60
+  
+  # RSI参数
+  rsi:
+    window: 14
+  
+  # 移动平均线参数
+  ma:
+    windows: [5, 10, 20, 60]
+    short_window: 5
+    long_window: 20
+  
+  # EMA参数
+  ema:
+    windows: [12, 26]
+    short_window: 12
+    long_window: 26
+  
+  # MACD参数
+  macd:
+    fast_period: 12
+    slow_period: 26
+    signal_period: 9
+  
+  # 布林带参数
+  bollinger:
+    window: 20
+    num_std: 2
+  
+  # 随机指标参数
+  stochastic:
+    k_window: 14
+    d_window: 3
+  
+  # ATR参数
+  atr:
+    window: 14
+  
+  # 威廉指标参数
+  williams:
+    window: 14
+  
+  # 动量指标参数
+  momentum:
+    window: 10
+  
+  # ROC参数
+  roc:
+    window: 12
+  momentum:
+    period: 20
+  mfi:
+    window: 14
+  volume:
+    sma_windows: [5, 20]
+  
+  # KDJ参数
+  kdj:
+    k_period: 9
+    d_period: 3
+    j_period: 3
+  # 未来可以添加更多因子参数...
+
+# 模型训练参数
+training_params:
+  model_name: 'LightGBM'
+  prediction_window: 5  # 预测未来5天的收益率
+  test_size: 0.2
+  lgbm_params:
+    objective: 'regression_l1'
+    metric: 'rmse'
+    n_estimators: 1000
+    learning_rate: 0.05
+    num_leaves: 31
+    max_depth: -1
+    min_child_samples: 20
+    subsample: 0.8
+    colsample_bytree: 0.8
+    reg_alpha: 0.1
+    reg_lambda: 0.1
+    random_state: 42
+
+# 策略评估参数
+strategy_params:
+  # 无风险利率
+  risk_free_rate: 0.03
+  # VaR和CVaR的置信水平
+  var_confidence_level: 0.05
+  # 年化计算的交易日数
+  trading_days_per_year: 252
+  rolling_window_days: 60  # 滚动窗口天数
+  max_display_items: 20  # 最大显示项目数
+
+# 数据库参数
+database_params:
+  string_length_short: 20  # 短字符串长度
+  string_length_medium: 100  # 中等字符串长度
+  default_limit: 100  # 默认查询限制
+
+# 监控参数
+monitoring_params:
+  collection_interval: 60  # 数据收集间隔(秒)
+  suppression_duration: 60  # 告警抑制时长(分钟)
+  slow_query_limit: 20  # 慢查询显示限制
+  metric_retention: 100  # 指标保留数量
+  evaluation_window: 60  # 评估窗口(分钟)
+  
+# 任务参数
+task_params:
+  timeout_minutes: 30  # 任务超时时间(分钟)
+  soft_timeout_minutes: 25  # 软超时时间(分钟)
+  retry_countdown: 60  # 重试倒计时(秒)
+  max_retries: 3  # 最大重试次数
+  schedule_hour: 20  # 定时任务执行小时
+  
+# API参数
+api_params:
+  default_limit: 100  # 默认返回数量限制
+  max_limit: 1000  # 最大返回数量限制
+  min_limit: 1  # 最小返回数量限制
+
+# 特征工程参数
+feature_params:
+  lookback_period: 14  # 回看周期
+  shap_background_samples: 100  # SHAP背景样本数
+  interaction_samples: 100  # 交互样本数
+  
+# 质量检查参数
+quality_params:
+  sample_size: 100  # 样本大小
+  orphan_threshold: 0.05  # 孤儿数据阈值
+    # ... 其他LGBM参数
+
+# 数据同步参数
+data_sync_params:
+  batch_size: 1000
+  retry_times: 3
+  retry_delay: 1  # 秒
+  max_workers: 4
+  start_year: 2020  # 交易日历开始年份
+  max_days: 30  # 日线数据最大更新天数
+  sleep_interval: 0.3  # API调用间隔(秒)
+  
+  # 财务数据同步参数
+  financial_data:
+    start_date: "20200101"  # 财务数据开始日期
+    batch_size: 100  # 财务数据批次大小
+    sleep_interval: 0.5  # 财务数据API调用间隔
+    
+  # 指标数据同步参数
+  indicator_data:
+    start_date: "20200101"  # 指标数据开始日期
+    batch_size: 500  # 指标数据批次大小
+    sleep_interval: 0.2  # 指标数据API调用间隔
+    
+  # 情绪数据同步参数
+  sentiment_data:
+    start_date: "20200101"  # 情绪数据开始日期
+    sleep_interval: 1.0  # 情绪数据API调用间隔
+    
+  # 资金流向数据同步参数
+  fund_flow_data:
+    start_date: "20200101"  # 资金流向数据开始日期
+    batch_size: 100  # 资金流向数据批次大小
+    sleep_interval: 1.0  # 资金流向数据API调用间隔
+    
+  # 北向资金数据同步参数
+  north_money_data:
+    start_date: "20200101"  # 北向资金数据开始日期
+    sleep_interval: 2.0  # 北向资金数据API调用间隔
+
+# 监控告警参数
+monitoring_params:
+  alerts:
+    cpu_threshold: 80.0  # CPU使用率阈值
+    memory_threshold: 85.0  # 内存使用率阈值
+    error_rate_threshold: 5.0  # 错误率阈值
+    response_time_threshold: 1000  # 响应时间阈值(毫秒)
+  performance:
+    collection_interval: 60  # 性能数据收集间隔(秒)
+    retention_days: 30  # 数据保留天数
+
+# 数据库参数
+database_params:
+  connection_pool_size: 10
+  max_overflow: 20
+  pool_timeout: 30
+  pool_recycle: 3600
+
+# API参数
+api_params:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 1
+  reload: true
+  log_level: "info"
+  cors_origins: ["*"]
+
+# 全流程测试配置
+full_test_config:
+  start_date: "20240101"  # 测试开始日期
+  end_date: "20241215"    # 测试结束日期
+  stock_pool: ["000001.SZ", "000002.SZ", "600000.SH", "600036.SH", "000858.SZ"]  # 测试股票池
+  
+# 常量定义
+constants:
+  trading_days_per_year: 252
+  trading_hours_per_day: 4
+  market_open_time: "09:30"
+  market_close_time: "15:00"

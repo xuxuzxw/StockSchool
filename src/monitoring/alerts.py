@@ -15,6 +15,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from loguru import logger
+from src.utils.config_loader import config
 import pandas as pd
 import numpy as np
 from collections import defaultdict, deque
@@ -108,7 +109,9 @@ class Alert:
 class MetricCollector:
     """指标收集器"""
     
-    def __init__(self, max_history: int = 1000):
+    def __init__(self, max_history: int = None):
+        if max_history is None:
+            max_history = config.get('monitoring.max_metric_history', 1000)
         """初始化指标收集器"""
         self.metrics = defaultdict(lambda: deque(maxlen=max_history))
         self.lock = threading.Lock()
@@ -278,7 +281,9 @@ class AlertStorage:
                 json.dumps(alert.tags), json.dumps(alert.metadata)
             ))
     
-    def load_alerts(self, status: AlertStatus = None, limit: int = 100) -> List[Alert]:
+    def load_alerts(self, status: AlertStatus = None, limit: int = None) -> List[Alert]:
+        if limit is None:
+            limit = config.get('database_params.default_limit', 100)
         """加载告警"""
         with sqlite3.connect(self.db_path) as conn:
             if status:
@@ -375,7 +380,9 @@ class EmailChannel(NotificationChannel):
 class WebhookChannel(NotificationChannel):
     """Webhook通知渠道"""
     
-    def __init__(self, url: str, headers: Dict[str, str] = None, timeout: int = 10):
+    def __init__(self, url: str, headers: Dict[str, str] = None, timeout: int = None):
+        if timeout is None:
+            timeout = config.get('monitoring.webhook_timeout', 10)
         self.url = url
         self.headers = headers or {'Content-Type': 'application/json'}
         self.timeout = timeout
@@ -545,7 +552,8 @@ class AlertEngine:
             return False
         
         # 检查最近的告警
-        recent_alerts = self.storage.load_alerts(AlertStatus.ACTIVE, limit=100)
+        alert_limit = config.get('monitoring.alert_check_limit', 100)
+        recent_alerts = self.storage.load_alerts(AlertStatus.ACTIVE, limit=alert_limit)
         cutoff_time = datetime.now() - timedelta(minutes=suppression_duration)
         
         for recent_alert in recent_alerts:
@@ -636,7 +644,8 @@ class AlertEngine:
     
     def get_alert_statistics(self) -> Dict[str, Any]:
         """获取告警统计"""
-        all_alerts = self.storage.load_alerts(limit=1000)
+        stats_limit = config.get('monitoring.stats_limit', 1000)
+        all_alerts = self.storage.load_alerts(limit=stats_limit)
         
         stats = {
             'total_alerts': len(all_alerts),
@@ -685,7 +694,7 @@ if __name__ == '__main__':
         condition="cpu_usage",
         threshold=80.0,
         comparison=">",
-        evaluation_window=60,
+        evaluation_window=config.get('monitoring_params.evaluation_window', 60),
         trigger_count=3
     )
     
@@ -707,7 +716,8 @@ if __name__ == '__main__':
     
     # 添加抑制规则
     engine.add_suppression_rule("CPU使用率过高", 30)  # 30分钟内不重复告警
-    engine.add_suppression_rule("错误率过高", 60)   # 60分钟内不重复告警
+    suppression_duration = config.get('monitoring_params.suppression_duration', 60)
+    engine.add_suppression_rule("错误率过高", suppression_duration)   # N分钟内不重复告警
     
     # 启动引擎
     engine.start()

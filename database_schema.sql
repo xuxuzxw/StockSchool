@@ -1037,6 +1037,81 @@ FROM data_quality_monitor
 WHERE check_date >= CURRENT_DATE - INTERVAL '7 days'
 ORDER BY check_date DESC, table_name;
 
+-- 财务报表汇总表（用于统一存储三大财务报表数据）
+CREATE TABLE IF NOT EXISTS financial_reports (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    ts_code VARCHAR(20) NOT NULL,     -- 股票代码
+    ann_date DATE,                    -- 公告日期
+    f_ann_date DATE,                  -- 实际公告日期
+    end_date DATE NOT NULL,           -- 报告期
+    report_type VARCHAR(10),          -- 报告类型
+    comp_type VARCHAR(10),            -- 公司类型
+    -- 利润表关键字段
+    total_revenue DECIMAL(20,4),      -- 营业总收入
+    revenue DECIMAL(20,4),            -- 营业收入
+    operate_profit DECIMAL(20,4),     -- 营业利润
+    total_profit DECIMAL(20,4),       -- 利润总额
+    n_income DECIMAL(20,4),           -- 净利润
+    n_income_attr_p DECIMAL(20,4),    -- 归属于母公司股东的净利润
+    basic_eps DECIMAL(10,4),          -- 基本每股收益
+    diluted_eps DECIMAL(10,4),        -- 稀释每股收益
+    -- 资产负债表关键字段
+    total_assets DECIMAL(20,4),       -- 资产总计
+    total_liab DECIMAL(20,4),         -- 负债合计
+    total_hldr_eqy_inc_min_int DECIMAL(20,4), -- 股东权益合计
+    total_share DECIMAL(20,4),        -- 期末总股本
+    -- 现金流量表关键字段
+    c_fr_sale_sg DECIMAL(20,4),       -- 销售商品、提供劳务收到的现金
+    c_paid_goods_s DECIMAL(20,4),     -- 购买商品、接受劳务支付的现金
+    n_cashflow_act DECIMAL(20,4),     -- 经营活动产生的现金流量净额
+    n_cashflow_inv_act DECIMAL(20,4), -- 投资活动产生的现金流量净额
+    n_cashflow_fin_act DECIMAL(20,4), -- 筹资活动产生的现金流量净额
+    c_cash_equ_end_period DECIMAL(20,4), -- 期末现金及现金等价物余额
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(ts_code, end_date, report_type)
+);
+
+-- 因子库表
+CREATE TABLE IF NOT EXISTS factor_library (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    ts_code VARCHAR(20) NOT NULL,     -- 股票代码
+    trade_date DATE NOT NULL,         -- 交易日期
+    factor_name VARCHAR(50) NOT NULL, -- 因子名称
+    factor_value DECIMAL(15,8),       -- 因子值
+    factor_category VARCHAR(20),      -- 因子分类（技术面/基本面/情绪面等）
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(ts_code, trade_date, factor_name)
+);
+
+SELECT create_hypertable('factor_library', 'trade_date', if_not_exists => TRUE);
+
+-- 为factor_library表创建索引
+CREATE INDEX IF NOT EXISTS idx_factor_library_ts_code ON factor_library(ts_code);
+CREATE INDEX IF NOT EXISTS idx_factor_library_factor_name ON factor_library(factor_name);
+CREATE INDEX IF NOT EXISTS idx_factor_library_category ON factor_library(factor_category);
+
+-- 情绪数据表（用于存储市场情绪、资金流向等数据）
+CREATE TABLE IF NOT EXISTS sentiment_data (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    trade_date DATE NOT NULL,         -- 交易日期
+    ts_code VARCHAR(20),              -- 股票代码（可为空，表示市场整体数据）
+    data_category VARCHAR(50) NOT NULL, -- 数据分类（market_sentiment/fund_flow/north_money等）
+    data_type VARCHAR(50) NOT NULL,   -- 数据类型（具体的数据子类型）
+    data_value TEXT,                  -- 数据值（JSON格式存储）
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+SELECT create_hypertable('sentiment_data', 'trade_date', if_not_exists => TRUE);
+
+-- 为sentiment_data表创建索引
+CREATE INDEX IF NOT EXISTS idx_sentiment_data_ts_code ON sentiment_data(ts_code);
+CREATE INDEX IF NOT EXISTS idx_sentiment_data_category ON sentiment_data(data_category);
+CREATE INDEX IF NOT EXISTS idx_sentiment_data_type ON sentiment_data(data_type);
+CREATE INDEX IF NOT EXISTS idx_sentiment_data_trade_date ON sentiment_data(trade_date);}]}}}
+
 -- ================================
 -- 14. 函数创建
 -- ================================

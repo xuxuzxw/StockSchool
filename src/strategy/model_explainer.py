@@ -12,6 +12,7 @@ warnings.filterwarnings('ignore')
 import sys
 import os
 from loguru import logger
+from src.utils.config_loader import config
 
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -176,12 +177,14 @@ class ModelExplainer:
                 self.explainer = shap.LinearExplainer(self.model, X)
             else:
                 # 通用解释器
-                self.explainer = shap.Explainer(self.model, X[:100])  # 使用前100个样本作为背景
+                background_samples = config.get('feature_params.shap_background_samples', 100)
+                self.explainer = shap.Explainer(self.model, X[:background_samples])  # 使用前N个样本作为背景
         
         except Exception as e:
             logger.warning(f"初始化SHAP解释器失败: {e}，使用通用解释器")
             try:
-                self.explainer = shap.Explainer(self.model.predict, X[:100])
+                background_samples = config.get('feature_params.shap_background_samples', 100)
+                self.explainer = shap.Explainer(self.model.predict, X[:background_samples])
             except:
                 logger.error("无法初始化SHAP解释器")
                 self.explainer = None
@@ -252,7 +255,8 @@ class ModelExplainer:
                 return pd.DataFrame()
             
             # 计算SHAP交互值
-            shap_interaction_values = self.explainer.shap_interaction_values(X[:min(100, len(X))])
+            interaction_samples = config.get('feature_params.interaction_samples', 100)
+            shap_interaction_values = self.explainer.shap_interaction_values(X[:min(interaction_samples, len(X))])
             
             # 计算特征交互强度
             feature_names = self.feature_names or [f'feature_{i}' for i in range(X.shape[1])]
@@ -321,7 +325,7 @@ class ModelExplainer:
         return summary
     
     def plot_feature_importance(self, X: pd.DataFrame, y: pd.Series = None, 
-                               method: str = 'default', top_n: int = 20, 
+                               method: str = 'default', top_n: int = None, 
                                figsize: Tuple[int, int] = (10, 8)):
         """
         绘制特征重要性图
@@ -333,6 +337,9 @@ class ModelExplainer:
             top_n: 显示前N个特征
             figsize: 图表大小
         """
+        if top_n is None:
+            top_n = config.get('strategy_params.max_display_items', 20)
+            
         importance_df = self.calculate_feature_importance(X, y, method)
         
         if importance_df.empty:
@@ -361,7 +368,7 @@ class ModelExplainer:
         plt.show()
     
     def plot_shap_summary(self, X: pd.DataFrame, plot_type: str = 'bar', 
-                         max_display: int = 20, figsize: Tuple[int, int] = (10, 8)):
+                         max_display: int = None, figsize: Tuple[int, int] = (10, 8)):
         """
         绘制SHAP总结图
         
@@ -371,6 +378,9 @@ class ModelExplainer:
             max_display: 最大显示特征数
             figsize: 图表大小
         """
+        if max_display is None:
+            max_display = config.get('strategy_params.max_display_items', 20)
+            
         try:
             if self.explainer is None:
                 self._initialize_shap_explainer(X)
@@ -380,7 +390,7 @@ class ModelExplainer:
                 return
             
             # 计算SHAP值
-            sample_size = min(1000, len(X))  # 限制样本数量以提高性能
+            sample_size = min(config.get('strategy_params.shap_sample_size', 1000), len(X))  # 限制样本数量以提高性能
             X_sample = X.sample(n=sample_size, random_state=42)
             shap_values = self.explainer.shap_values(X_sample)
             
@@ -427,7 +437,8 @@ class ModelExplainer:
         feature_names = list(explanation['shap_values'].keys())
         
         # 按绝对值排序
-        sorted_indices = np.argsort(np.abs(shap_values))[::-1][:15]  # 显示前15个
+        max_features_display = config.get('strategy_params.max_features_display', 15)
+        sorted_indices = np.argsort(np.abs(shap_values))[::-1][:max_features_display]  # 显示前N个
         sorted_shap = [shap_values[i] for i in sorted_indices]
         sorted_features = [feature_names[i] for i in sorted_indices]
         
@@ -473,7 +484,8 @@ class ModelExplainer:
         print(f"基准值: {base_value:.4f}")
         print(f"SHAP贡献总和: {shap_sum:.4f}")
         print("\n主要特征贡献:")
-        for feature, shap_val in zip(sorted_features[:10], sorted_shap[:10]):
+        top_features_count = config.get('strategy_params.top_features_count', 10)
+        for feature, shap_val in zip(sorted_features[:top_features_count], sorted_shap[:top_features_count]):
             print(f"  {feature}: {shap_val:.4f}")
 
 if __name__ == '__main__':

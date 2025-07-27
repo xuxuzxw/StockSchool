@@ -1,3 +1,5 @@
+import eventlet
+eventlet.monkey_patch()
 from celery import Celery
 from celery.schedules import crontab
 import os
@@ -6,30 +8,30 @@ from typing import List, Optional
 from loguru import logger
 import pandas as pd
 from datetime import datetime, timedelta
-
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from utils.db import get_db_engine
-from data.tushare_sync import TushareDataSync
-from compute.factor_engine import FactorEngine
-from compute.quality import DataQualityMonitor
+from src.utils.config_loader import config
+from src.utils.db import get_db_engine
+from src.data.tushare_sync import TushareSynchronizer as TushareDataSync
+from src.compute.factor_engine import FactorEngine
+from src.compute.quality import DataQualityMonitor
 
 # 创建Celery应用
 app = Celery('stockschool')
 
 # Celery配置
 app.conf.update(
-    broker_url=os.getenv('REDIS_URL', 'redis://localhost:6379/0'),
-    result_backend=os.getenv('REDIS_URL', 'redis://localhost:6379/0'),
+        broker_url=f"redis://:{os.getenv('REDIS_PASSWORD')}@{os.getenv('REDIS_HOST')}:{os.getenv('REDIS_PORT')}/{os.getenv('REDIS_DB')}",
+    result_backend=f"redis://:{os.getenv('REDIS_PASSWORD')}@{os.getenv('REDIS_HOST')}:{os.getenv('REDIS_PORT')}/{os.getenv('REDIS_DB')}",
     task_serializer='json',
     accept_content=['json'],
     result_serializer='json',
     timezone='Asia/Shanghai',
     enable_utc=True,
     task_track_started=True,
-    task_time_limit=30 * 60,  # 30分钟超时
-    task_soft_time_limit=25 * 60,  # 25分钟软超时
+    task_time_limit=config.get('task_params.timeout_minutes', 30) * 60,  # N分钟超时
+    task_soft_time_limit=config.get('task_params.soft_timeout_minutes', 25) * 60,  # N分钟软超时
     worker_prefetch_multiplier=1,
     task_acks_late=True,
     worker_disable_rate_limits=False,
@@ -54,7 +56,7 @@ app.conf.update(
         # 每周数据质量检查
         'weekly-quality-check': {
             'task': 'stockschool.weekly_quality_check',
-            'schedule': crontab(hour=20, minute=0, day_of_week=0),  # 每周日20:00执行
+            'schedule': crontab(hour=config.get('task_params.schedule_hour', 20), minute=0, day_of_week=0),  # 每周日N:00执行
         },
         # 每月全量因子重算
         'monthly-factor-recalc': {
@@ -75,21 +77,19 @@ def sync_daily_data(self, trade_date: Optional[str] = None):
     try:
         logger.info(f"开始同步每日数据任务: {trade_date or '最新交易日'}")
         
-        engine = get_db_engine()
-        sync = TushareDataSync(engine)
+        sync = TushareDataSync()
         
         if trade_date is None:
             # 获取最新交易日
-            trade_date = sync.get_latest_trade_date()
+            trade_date = sync.get_last_trade_date()
         
         # 同步基础数据
         sync.sync_stock_basic()
         sync.sync_trade_calendar()
         
         # 同步交易数据
-        sync.sync_daily_data(trade_date)
-        sync.sync_daily_basic(trade_date)
-        sync.sync_adj_factor(trade_date)
+        sync.update_daily_data(max_days=100)
+        sync.sync_indicator_data(start_date=trade_date)
         
         logger.info(f"每日数据同步完成: {trade_date}")
         return {'status': 'success', 'trade_date': trade_date}
@@ -111,21 +111,22 @@ def sync_stock_data(self, ts_code: str, start_date: str, end_date: str):
     try:
         logger.info(f"开始同步股票数据: {ts_code} ({start_date} - {end_date})")
         
-        engine = get_db_engine()
-        sync = TushareDataSync(engine)
+        sync = TushareDataSync()
         
-        # 同步股票日线数据
-        sync.sync_stock_daily(ts_code, start_date, end_date)
+        # 同步股票日线数据（使用update_daily_data方法）
+        sync.update_daily_data(max_days=30)
         
-        # 同步每日基本面数据
-        sync.sync_stock_daily_basic(ts_code, start_date, end_date)
+        # 同步每日基本面数据（使用sync_indicator_data方法）
+        sync.sync_indicator_data(start_date=start_date)
         
         logger.info(f"股票数据同步完成: {ts_code}")
         return {'status': 'success', 'ts_code': ts_code}
         
     except Exception as e:
         logger.error(f"股票数据同步失败: {ts_code} - {e}")
-        self.retry(countdown=60, max_retries=3)
+        retry_countdown = config.get('task_params.retry_countdown', 60)
+        max_retries = config.get('task_params.max_retries', 3)
+        self.retry(countdown=retry_countdown, max_retries=max_retries)
 
 @app.task(bind=True, name='stockschool.calculate_daily_factors')
 def calculate_daily_factors(self, trade_date: Optional[str] = None):
@@ -138,27 +139,34 @@ def calculate_daily_factors(self, trade_date: Optional[str] = None):
     try:
         logger.info(f"开始计算每日因子: {trade_date or '最新交易日'}")
         
-        engine = get_db_engine()
-        factor_engine = FactorEngine(engine)
+        factor_engine = FactorEngine()
         
         if trade_date is None:
             # 获取最新交易日
-            from data.tushare_sync import TushareDataSync
-            sync = TushareDataSync(engine)
-            trade_date = sync.get_latest_trade_date()
+            sync = TushareDataSync()
+            trade_date = sync.get_last_trade_date()
         
         # 获取所有活跃股票
-        active_stocks = factor_engine.get_active_stocks(trade_date)
+        active_stocks = factor_engine.get_all_stocks()
         
         success_count = 0
         error_count = 0
         
         for ts_code in active_stocks:
             try:
-                factor_engine.calculate_stock_factors(ts_code, days=60)
-                success_count += 1
+                min_data_days = config.get('factor_params.min_data_days', 60)
+                from datetime import datetime, timedelta
+                end_date = datetime.now().strftime('%Y-%m-%d')
+                start_date = (datetime.now() - timedelta(days=min_data_days)).strftime('%Y-%m-%d')
                 
-                if success_count % 100 == 0:
+                success = factor_engine.calculate_stock_factors(ts_code, start_date, end_date)
+                if success:
+                    success_count += 1
+                else:
+                    error_count += 1
+                
+                progress_interval = config.get('data_sync_params.progress_interval', 100)
+                if success_count % progress_interval == 0:
                     logger.info(f"已完成 {success_count} 只股票的因子计算")
                     
             except Exception as e:
@@ -178,7 +186,9 @@ def calculate_daily_factors(self, trade_date: Optional[str] = None):
         self.retry(countdown=600, max_retries=2)  # 10分钟后重试，最多2次
 
 @app.task(bind=True, name='stockschool.calculate_stock_factors')
-def calculate_stock_factors(self, ts_code: str, days: int = 60):
+def calculate_stock_factors(self, ts_code: str, days: int = None):
+    if days is None:
+        days = config.get('factor_params.min_data_days', 60)
     """
     计算单只股票因子任务
     
@@ -189,18 +199,21 @@ def calculate_stock_factors(self, ts_code: str, days: int = 60):
     try:
         logger.info(f"开始计算股票因子: {ts_code}")
         
-        engine = get_db_engine()
-        factor_engine = FactorEngine(engine)
+        factor_engine = FactorEngine()
         
-        # 计算因子
-        factors = factor_engine.calculate_stock_factors(ts_code, days)
+        # 计算因子 - 将days转换为日期范围
+        from datetime import datetime, timedelta
+        end_date = datetime.now().strftime('%Y-%m-%d')
+        start_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
         
-        if factors is not None and not factors.empty:
-            logger.info(f"股票因子计算完成: {ts_code}, 计算了 {len(factors)} 条记录")
-            return {'status': 'success', 'ts_code': ts_code, 'factor_count': len(factors)}
+        success = factor_engine.calculate_stock_factors(ts_code, start_date, end_date)
+        
+        if success:
+            logger.info(f"股票因子计算完成: {ts_code}")
+            return {'status': 'success', 'ts_code': ts_code}
         else:
-            logger.warning(f"股票因子计算无结果: {ts_code}")
-            return {'status': 'no_data', 'ts_code': ts_code}
+            logger.warning(f"股票因子计算失败: {ts_code}")
+            return {'status': 'failed', 'ts_code': ts_code}
         
     except Exception as e:
         logger.error(f"股票因子计算失败: {ts_code} - {e}")
@@ -257,8 +270,7 @@ def monthly_factor_recalculation(self):
     try:
         logger.info("开始每月全量因子重算")
         
-        engine = get_db_engine()
-        factor_engine = FactorEngine(engine)
+        factor_engine = FactorEngine()
         
         # 获取所有股票
         all_stocks = factor_engine.get_all_stocks()
@@ -269,8 +281,15 @@ def monthly_factor_recalculation(self):
         for ts_code in all_stocks:
             try:
                 # 重算最近250天的因子
-                factor_engine.calculate_stock_factors(ts_code, days=250)
-                success_count += 1
+                from datetime import datetime, timedelta
+                end_date = datetime.now().strftime('%Y-%m-%d')
+                start_date = (datetime.now() - timedelta(days=250)).strftime('%Y-%m-%d')
+                
+                success = factor_engine.calculate_stock_factors(ts_code, start_date, end_date)
+                if success:
+                    success_count += 1
+                else:
+                    error_count += 1
                 
                 if success_count % 50 == 0:
                     logger.info(f"已完成 {success_count}/{len(all_stocks)} 只股票的因子重算")
@@ -354,7 +373,7 @@ def batch_sync_stocks(self, stock_codes: List[str], start_date: str, end_date: s
         self.retry(countdown=300, max_retries=2)
 
 @app.task(bind=True, name='stockschool.batch_calculate_factors')
-def batch_calculate_factors(self, stock_codes: List[str], days: int = 60):
+def batch_calculate_factors(self, stock_codes: List[str], days: int = None):
     """
     批量计算股票因子
     
@@ -362,6 +381,8 @@ def batch_calculate_factors(self, stock_codes: List[str], days: int = 60):
         stock_codes: 股票代码列表
         days: 计算天数
     """
+    if days is None:
+        days = config.get('factor_params.min_data_days', 60)
     try:
         logger.info(f"开始批量计算 {len(stock_codes)} 只股票因子")
         
@@ -389,6 +410,155 @@ def batch_calculate_factors(self, stock_codes: List[str], days: int = 60):
     except Exception as e:
         logger.error(f"批量因子计算失败: {e}")
         self.retry(countdown=300, max_retries=2)
+
+# AI模型相关任务
+@app.task(bind=True, name='stockschool.train_ai_model')
+def train_ai_model(self, start_date: str, end_date: str, stock_pool: List[str] = None, 
+                  model_type: str = 'lightgbm'):
+    """
+    AI模型训练任务
+    
+    Args:
+        start_date: 训练数据开始日期
+        end_date: 训练数据结束日期
+        stock_pool: 股票池
+        model_type: 模型类型
+    """
+    try:
+        logger.info(f"开始训练AI模型: {model_type}, 数据期间: {start_date} 到 {end_date}")
+        
+        from ..strategy.ai_model import AIModelTrainer
+        
+        # 创建训练器
+        trainer = AIModelTrainer()
+        
+        # 准备训练数据
+        training_data = trainer.prepare_training_data(start_date, end_date, stock_pool)
+        
+        if training_data.empty:
+            logger.warning("训练数据为空")
+            return {'status': 'no_data', 'message': '训练数据为空'}
+        
+        # 训练模型
+        result = trainer.train_model(training_data, model_type)
+        
+        # 保存模型
+        model_path = trainer.save_model(model_type)
+        
+        logger.info(f"AI模型训练完成: {model_type}, R²: {result['metrics']['r2_score']:.4f}")
+        
+        return {
+            'status': 'success',
+            'model_type': model_type,
+            'model_path': model_path,
+            'metrics': result['metrics'],
+            'training_samples': result['training_samples'],
+            'test_samples': result['test_samples']
+        }
+        
+    except Exception as e:
+        logger.error(f"AI模型训练失败: {e}")
+        self.retry(countdown=600, max_retries=2)  # 10分钟后重试
+
+@app.task(bind=True, name='stockschool.run_prediction')
+def run_prediction(self, stock_codes: List[str], trade_date: str, model_path: str = None):
+    """
+    AI模型预测任务
+    
+    Args:
+        stock_codes: 股票代码列表
+        trade_date: 预测日期
+        model_path: 模型文件路径
+    """
+    try:
+        logger.info(f"开始AI预测: {len(stock_codes)} 只股票, 日期: {trade_date}")
+        
+        from ..strategy.ai_model import AIModelPredictor
+        
+        # 创建预测器
+        predictor = AIModelPredictor(model_path)
+        
+        # 执行预测
+        predictions = predictor.predict(stock_codes, trade_date)
+        
+        if not predictions:
+            logger.warning("预测结果为空")
+            return {'status': 'no_data', 'message': '预测结果为空'}
+        
+        # 保存预测结果到数据库
+        engine = get_db_engine()
+        
+        prediction_records = []
+        for ts_code, predicted_return in predictions.items():
+            prediction_records.append({
+                'ts_code': ts_code,
+                'trade_date': trade_date,
+                'predicted_return': predicted_return,
+                'prediction_time': datetime.now(),
+                'model_path': model_path
+            })
+        
+        # 插入预测结果
+        if prediction_records:
+            df = pd.DataFrame(prediction_records)
+            df.to_sql('ai_predictions', engine, if_exists='append', index=False)
+        
+        logger.info(f"AI预测完成: {len(predictions)} 只股票")
+        
+        return {
+            'status': 'success',
+            'prediction_count': len(predictions),
+            'trade_date': trade_date,
+            'predictions': predictions
+        }
+        
+    except Exception as e:
+        logger.error(f"AI预测失败: {e}")
+        self.retry(countdown=300, max_retries=3)  # 5分钟后重试
+
+@app.task(bind=True, name='stockschool.batch_prediction')
+def batch_prediction(self, stock_codes: List[str], start_date: str, end_date: str, 
+                    model_path: str = None):
+    """
+    批量AI预测任务
+    
+    Args:
+        stock_codes: 股票代码列表
+        start_date: 开始日期
+        end_date: 结束日期
+        model_path: 模型文件路径
+    """
+    try:
+        logger.info(f"开始批量AI预测: {len(stock_codes)} 只股票, {start_date} 到 {end_date}")
+        
+        from ..strategy.ai_model import AIModelPredictor
+        
+        # 创建预测器
+        predictor = AIModelPredictor(model_path)
+        
+        # 批量预测
+        predictions_df = predictor.batch_predict(stock_codes, start_date, end_date)
+        
+        if predictions_df.empty:
+            logger.warning("批量预测结果为空")
+            return {'status': 'no_data', 'message': '批量预测结果为空'}
+        
+        # 保存预测结果到数据库
+        engine = get_db_engine()
+        predictions_df.to_sql('ai_predictions', engine, if_exists='append', index=False)
+        
+        logger.info(f"批量AI预测完成: {len(predictions_df)} 条预测记录")
+        
+        return {
+            'status': 'success',
+            'prediction_count': len(predictions_df),
+            'start_date': start_date,
+            'end_date': end_date
+        }
+        
+    except Exception as e:
+        logger.error(f"批量AI预测失败: {e}")
+        self.retry(countdown=600, max_retries=2)  # 10分钟后重试
 
 if __name__ == '__main__':
     # 启动Celery Worker

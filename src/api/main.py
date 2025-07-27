@@ -10,6 +10,7 @@ import uvicorn
 from loguru import logger
 import pandas as pd
 from sqlalchemy import text
+from src.utils.config_loader import config
 
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -224,7 +225,12 @@ async def health_check():
 async def get_stocks_basic(
     market: Optional[str] = Query(None, description="市场类型"),
     industry: Optional[str] = Query(None, description="行业"),
-    limit: int = Query(100, ge=1, le=1000, description="返回数量限制"),
+    limit: int = Query(
+        config.get('api_params.default_limit', 100), 
+        ge=config.get('api_params.min_limit', 1), 
+        le=config.get('api_params.max_limit', 1000), 
+        description="返回数量限制"
+    ),
     db_engine=Depends(get_database)
 ):
     """获取股票基础信息"""
@@ -268,9 +274,14 @@ async def get_stocks_basic(
 @app.get("/api/v1/stocks/{ts_code}/daily", response_model=List[StockDailyResponse], summary="获取股票日线数据")
 async def get_stock_daily(
     ts_code: str = Path(..., description="股票代码"),
-    start_date: Optional[str] = Query(None, description="开始日期(YYYYMMDD)"),
-    end_date: Optional[str] = Query(None, description="结束日期(YYYYMMDD)"),
-    limit: int = Query(100, ge=1, le=1000, description="返回数量限制"),
+    start_date: Optional[str] = Query(None, description="开始日期 (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="结束日期 (YYYY-MM-DD)"),
+    limit: int = Query(
+        config.get('api_params.default_limit', 100), 
+        ge=config.get('api_params.min_limit', 1), 
+        le=config.get('api_params.max_limit', 1000), 
+        description="返回数量限制"
+    ),
     db_engine=Depends(get_database)
 ):
     """获取股票日线数据"""
@@ -319,9 +330,14 @@ async def get_stock_daily(
 async def get_factor_values(
     factor_name: str = Path(..., description="因子名称"),
     ts_code: Optional[str] = Query(None, description="股票代码"),
-    start_date: Optional[str] = Query(None, description="开始日期(YYYYMMDD)"),
-    end_date: Optional[str] = Query(None, description="结束日期(YYYYMMDD)"),
-    limit: int = Query(100, ge=1, le=1000, description="返回数量限制"),
+    start_date: Optional[str] = Query(None, description="开始日期 (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="结束日期 (YYYY-MM-DD)"),
+    limit: int = Query(
+        config.get('api_params.default_limit', 100), 
+        ge=config.get('api_params.min_limit', 1), 
+        le=config.get('api_params.max_limit', 1000), 
+        description="返回数量限制"
+    ),
     db_engine=Depends(get_database)
 ):
     """获取因子值"""
@@ -541,8 +557,8 @@ if __name__ == "__main__":
     # 开发环境运行
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
+        host=config.get('api_params.host', '0.0.0.0'),
+        port=config.get('api_params.port', 8000),
+        reload=config.get('api_params.reload', True),
+        log_level=config.get('api_params.log_level', 'info')
     )

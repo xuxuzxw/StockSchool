@@ -24,6 +24,29 @@ services:
       timeout: 10s
       retries: 5
 
+  # 测试数据库 (独立的PostgreSQL实例)
+  test_db:
+    image: timescale/timescaledb:latest-pg15
+    container_name: stockschool_test_db
+    environment:
+      POSTGRES_DB: ${TEST_POSTGRES_DB:-stockschool_test}
+      POSTGRES_USER: ${TEST_POSTGRES_USER:-stockschool_test}
+      POSTGRES_PASSWORD: ${TEST_POSTGRES_PASSWORD:-test123}
+      TIMESCALEDB_TELEMETRY: off
+    ports:
+      - "15433:5432"
+    volumes:
+      - test_postgres_data:/var/lib/postgresql/data
+      - ./database_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    networks:
+      - stockschool_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TEST_POSTGRES_USER:-stockschool_test} -d ${TEST_POSTGRES_DB:-stockschool_test}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
   # Redis 缓存
   redis:
     image: redis:7-alpine
@@ -44,6 +67,8 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  test_postgres_data:
     driver: local
   redis_data:
     driver: local

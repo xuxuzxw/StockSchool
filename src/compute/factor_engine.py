@@ -18,7 +18,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.db import get_db_engine
 from utils.retry import idempotent_retry
-from compute.indicators import FactorCalculator
+from utils.config_loader import config
+from compute.indicators import FactorCalculator, FundamentalFactorCalculator
 
 
 class FactorEngine:
@@ -28,6 +29,7 @@ class FactorEngine:
         """初始化因子引擎"""
         self.engine = get_db_engine()
         self.calculator = FactorCalculator()
+        self.fundamental_calculator = FundamentalFactorCalculator()
         logger.info("因子计算引擎初始化完成")
     
     def get_stock_data(self, 
@@ -198,8 +200,10 @@ class FactorEngine:
                 logger.warning(f"股票 {ts_code} 无数据，跳过因子计算")
                 return True
                 
-            if len(df) < 60:  # 至少需要60天数据才能计算完整因子
-                logger.warning(f"股票 {ts_code} 数据不足60天，跳过因子计算")
+            # 从配置获取最小数据天数要求
+            min_data_days = config.get('factor_params.min_data_days', 60)
+            if len(df) < min_data_days:
+                logger.warning(f"股票 {ts_code} 数据不足{min_data_days}天，跳过因子计算")
                 return True
             
             # 计算技术因子
@@ -309,8 +313,9 @@ class FactorEngine:
                 failed_count += 1
                 failed_stocks.append(ts_code)
                 
-            # 每100只股票输出一次进度
-            if i % 100 == 0:
+            # 从配置获取进度报告间隔
+            progress_interval = config.get('data_sync_params.progress_interval', 100)
+            if i % progress_interval == 0:
                 logger.info(f"进度: {i}/{len(stocks)}, 成功: {success_count}, 失败: {failed_count}")
         
         result = {
@@ -324,6 +329,223 @@ class FactorEngine:
         logger.info(f"因子计算完成: 总计 {len(stocks)} 只股票, 成功 {success_count} 只, 失败 {failed_count} 只")
         
         return result
+    
+    def _calculate_fundamental_factors(self, 
+                                     start_date: Optional[str] = None,
+                                     end_date: Optional[str] = None,
+                                     stock_list: Optional[List[str]] = None) -> Dict[str, Any]:
+        """计算基本面因子
+        
+        Args:
+            start_date: 开始日期
+            end_date: 结束日期
+            stock_list: 指定股票列表
+            
+        Returns:
+            计算结果统计
+        """
+        logger.info("开始计算基本面因子")
+        
+        # 构建查询条件
+        query = """
+            SELECT ts_code, ann_date, end_date, report_type,
+                   revenue, net_profit, total_assets, total_hldr_eqy_exc_min_int,
+                   oper_cost, total_liab, total_cur_assets, total_cur_liab, inventories
+            FROM financial_reports
+            WHERE 1=1
+        """
+        
+        params = {}
+        
+        if start_date:
+            query += " AND end_date >= :start_date"
+            params['start_date'] = start_date
+            
+        if end_date:
+            query += " AND end_date <= :end_date"
+            params['end_date'] = end_date
+            
+        if stock_list:
+            placeholders = ', '.join([f":stock_{i}" for i in range(len(stock_list))])
+            query += f" AND ts_code IN ({placeholders})"
+            for i, stock in enumerate(stock_list):
+                params[f'stock_{i}'] = stock
+                
+        query += " ORDER BY ts_code, end_date"
+        
+        try:
+            with self.engine.connect() as conn:
+                financial_data = pd.read_sql_query(text(query), conn, params=params)
+                
+            if financial_data.empty:
+                logger.warning("未找到财务数据")
+                return {
+                    'total_records': 0,
+                    'success_count': 0,
+                    'failed_count': 0,
+                    'success_rate': 0
+                }
+            
+            logger.info(f"获取到 {len(financial_data)} 条财务数据")
+            
+            # 计算基本面因子
+            factors_df = self.fundamental_calculator.calculate_all_fundamental_factors(financial_data)
+            
+            # 准备存储数据
+            factor_columns = [
+                'roe', 'roa', 'gross_margin', 'net_margin',
+                'revenue_yoy', 'net_profit_yoy',
+                'debt_to_equity', 'current_ratio', 'quick_ratio'
+            ]
+            
+            # 选择存在的因子列
+            available_factors = [col for col in factor_columns if col in factors_df.columns]
+            
+            if not available_factors:
+                logger.warning("未计算出有效的基本面因子")
+                return {
+                    'total_records': len(financial_data),
+                    'success_count': 0,
+                    'failed_count': len(financial_data),
+                    'success_rate': 0
+                }
+            
+            # 准备插入数据
+            insert_data = factors_df[['ts_code', 'end_date'] + available_factors].copy()
+            
+            # 删除包含NaN的行
+            insert_data = insert_data.dropna(subset=available_factors, how='all')
+            
+            if insert_data.empty:
+                logger.warning("计算后无有效因子数据")
+                return {
+                    'total_records': len(financial_data),
+                    'success_count': 0,
+                    'failed_count': len(financial_data),
+                    'success_rate': 0
+                }
+            
+            # 添加因子分类和计算日期
+            factor_records = []
+            for _, row in insert_data.iterrows():
+                for factor_name in available_factors:
+                    if not pd.isna(row[factor_name]):
+                        factor_records.append({
+                            'ts_code': row['ts_code'],
+                            'trade_date': row['end_date'],  # 使用财报期末日期
+                            'factor_name': factor_name,
+                            'factor_value': row[factor_name],
+                            'factor_category': self._get_factor_category(factor_name),
+                            'created_at': pd.Timestamp.now()
+                        })
+            
+            if not factor_records:
+                logger.warning("未生成有效的因子记录")
+                return {
+                    'total_records': len(financial_data),
+                    'success_count': 0,
+                    'failed_count': len(financial_data),
+                    'success_rate': 0
+                }
+            
+            factor_df = pd.DataFrame(factor_records)
+            
+            # 存储到数据库
+            with self.engine.connect() as conn:
+                # 先删除已存在的数据
+                if start_date and end_date:
+                    delete_sql = """
+                        DELETE FROM factor_library 
+                        WHERE factor_category IN ('profitability', 'growth', 'leverage', 'liquidity')
+                        AND trade_date BETWEEN :start_date AND :end_date
+                    """
+                    conn.execute(text(delete_sql), {
+                        'start_date': start_date,
+                        'end_date': end_date
+                    })
+                
+                # 插入新数据
+                factor_df.to_sql(
+                    'factor_library', 
+                    conn, 
+                    if_exists='append', 
+                    index=False,
+                    method='multi'
+                )
+                
+                conn.commit()
+                
+            logger.info(f"基本面因子计算完成，存储 {len(factor_df)} 条记录")
+            
+            return {
+                'total_records': len(financial_data),
+                'success_count': len(factor_df),
+                'failed_count': len(financial_data) - len(insert_data),
+                'success_rate': len(insert_data) / len(financial_data) if financial_data else 0
+            }
+            
+        except Exception as e:
+            logger.error(f"基本面因子计算失败: {str(e)}")
+            raise
+    
+    def _get_factor_category(self, factor_name: str) -> str:
+        """获取因子分类
+        
+        Args:
+            factor_name: 因子名称
+            
+        Returns:
+            因子分类
+        """
+        profitability_factors = ['roe', 'roa', 'gross_margin', 'net_margin']
+        growth_factors = ['revenue_yoy', 'net_profit_yoy']
+        leverage_factors = ['debt_to_equity']
+        liquidity_factors = ['current_ratio', 'quick_ratio']
+        
+        if factor_name in profitability_factors:
+            return 'profitability'
+        elif factor_name in growth_factors:
+            return 'growth'
+        elif factor_name in leverage_factors:
+            return 'leverage'
+        elif factor_name in liquidity_factors:
+            return 'liquidity'
+        else:
+            return 'other'
+    
+    def calculate_all_factors_with_fundamental(self, 
+                                             start_date: Optional[str] = None,
+                                             end_date: Optional[str] = None,
+                                             stock_list: Optional[List[str]] = None) -> Dict[str, Any]:
+        """计算所有因子（包括技术因子和基本面因子）
+        
+        Args:
+            start_date: 开始日期
+            end_date: 结束日期
+            stock_list: 指定股票列表
+            
+        Returns:
+            计算结果统计
+        """
+        logger.info("开始计算所有因子（技术因子 + 基本面因子）")
+        
+        # 计算技术因子
+        technical_result = self.calculate_all_factors(start_date, end_date, stock_list)
+        
+        # 计算基本面因子
+        fundamental_result = self._calculate_fundamental_factors(start_date, end_date, stock_list)
+        
+        # 合并结果
+        total_result = {
+            'technical_factors': technical_result,
+            'fundamental_factors': fundamental_result,
+            'total_success_count': technical_result['success_count'] + fundamental_result['success_count'],
+            'total_failed_count': technical_result['failed_count'] + fundamental_result['failed_count']
+        }
+        
+        logger.info(f"所有因子计算完成: 技术因子成功 {technical_result['success_count']} 只, 基本面因子成功 {fundamental_result['success_count']} 条")
+        
+        return total_result
     
     def get_factor_data(self, 
                        factor_names: List[str],
@@ -444,7 +666,8 @@ if __name__ == "__main__":
                 stocks = stocks[:args.limit]
                 print(f"测试模式：只计算前 {args.limit} 只股票")
                 
-            result = engine.calculate_all_factors(args.start_date, args.end_date, stocks)
+            # 计算技术因子和基本面因子
+            result = engine.calculate_all_factors_with_fundamental(args.start_date, args.end_date, stocks)
             print(f"计算完成: {result}")
             
     elif args.action == 'stats':

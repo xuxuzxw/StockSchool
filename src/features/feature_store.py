@@ -9,6 +9,7 @@ import uuid
 import json
 import sys
 import os
+from src.utils.config_loader import config
 
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -568,7 +569,7 @@ if __name__ == '__main__':
         category='momentum',
         description='14日相对强弱指标',
         calculation_method='RSI计算公式',
-        lookback_period=14
+        lookback_period=config.get('factor_params.rsi.window', 14)
     )
     
     print(f"特征注册结果: {success}")

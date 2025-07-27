@@ -17,6 +17,7 @@ import threading
 import time
 from queue import Queue
 import traceback
+from src.utils.config_loader import config
 
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -170,7 +171,7 @@ class AlertManager:
         self.notifiers = []
         self.alert_queue = Queue()
         self.alert_history = []
-        self.max_history = 1000
+        self.max_history = config.get('monitoring.max_alert_history', 1000)
         self.alert_rules = {}
         self.suppression_rules = {}
         self._running = False
@@ -377,9 +378,10 @@ class StockSchoolLogger:
     def _setup_alert_manager(self):
         """设置告警管理器"""
         # 添加默认告警规则
+        error_threshold = config.get('monitoring.error_threshold', 10)
         self.alert_manager.add_alert_rule(
             'high_error_rate',
-            lambda data: data.get('error_count', 0) > 10,
+            lambda data: data.get('error_count', 0) > error_threshold,
             AlertLevel.HIGH,
             '错误率过高',
             '系统错误数量超过阈值'
@@ -402,9 +404,9 @@ class StockSchoolLogger:
         )
         
         # 添加抑制规则（分钟）
-        self.alert_manager.add_suppression_rule('错误率过高', 30)
-        self.alert_manager.add_suppression_rule('数据同步失败', 60)
-        self.alert_manager.add_suppression_rule('数据库连接错误', 15)
+        self.alert_manager.add_suppression_rule('错误率过高', config.get('monitoring.suppression.error_rate', 30))
+        self.alert_manager.add_suppression_rule('数据同步失败', config.get('monitoring.suppression.sync_failure', 60))
+        self.alert_manager.add_suppression_rule('数据库连接错误', config.get('monitoring.suppression.db_error', 15))
         
         # 启动告警管理器
         self.alert_manager.start()

@@ -5,6 +5,7 @@ from loguru import logger
 from sqlalchemy import text
 import sys
 import os
+from utils.config_loader import config
 
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -361,7 +362,7 @@ class DataQualityMonitor:
             'report': generate_quality_report(df, ts_code)
         }
     
-    def batch_quality_check(self, stock_codes: List[str] = None, sample_size: int = 100) -> List[Dict]:
+    def batch_quality_check(self, stock_codes: List[str] = None, sample_size: int = None) -> List[Dict]:
         """
         批量质量检查
         
@@ -373,6 +374,10 @@ class DataQualityMonitor:
             质量检查结果列表
         """
         if stock_codes is None:
+            # 从配置获取样本大小
+            if sample_size is None:
+                sample_size = config.get('quality_params.sample_size', 100)
+            
             # 随机抽样股票
             query = """
             SELECT DISTINCT ts_code FROM stock_daily 

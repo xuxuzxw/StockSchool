@@ -14,6 +14,8 @@ import os
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from utils.config_loader import config
+
 class StrategyEvaluator:
     """
     策略评估器 - 评估量化策略的表现
@@ -27,7 +29,7 @@ class StrategyEvaluator:
             benchmark_return: 基准收益率序列
         """
         self.benchmark_return = benchmark_return
-        self.risk_free_rate = 0.03  # 无风险利率，默认3%
+        self.risk_free_rate = config.get('strategy_params.risk_free_rate', 0.03)
     
     def calculate_returns(self, prices: pd.Series) -> pd.Series:
         """
@@ -315,7 +317,7 @@ class StrategyEvaluator:
         
         return avg_profit / avg_loss
     
-    def calculate_var(self, returns: pd.Series, confidence_level: float = 0.05) -> float:
+    def calculate_var(self, returns: pd.Series, confidence_level: float = None) -> float:
         """
         计算风险价值(VaR)
         
@@ -329,9 +331,12 @@ class StrategyEvaluator:
         if len(returns) == 0:
             return 0.0
         
+        if confidence_level is None:
+            confidence_level = config.get('strategy_params.var_confidence_level', 0.05)
+        
         return returns.quantile(confidence_level)
     
-    def calculate_cvar(self, returns: pd.Series, confidence_level: float = 0.05) -> float:
+    def calculate_cvar(self, returns: pd.Series, confidence_level: float = None) -> float:
         """
         计算条件风险价值(CVaR)
         
@@ -344,6 +349,9 @@ class StrategyEvaluator:
         """
         if len(returns) == 0:
             return 0.0
+        
+        if confidence_level is None:
+            confidence_level = config.get('strategy_params.var_confidence_level', 0.05)
         
         var = self.calculate_var(returns, confidence_level)
         return returns[returns <= var].mean()
@@ -555,7 +563,8 @@ class StrategyEvaluator:
         
         # 滚动夏普比率
         ax4 = axes[1, 1]
-        rolling_window = min(60, len(returns) // 4)  # 60天或1/4数据长度
+        default_window = config.get('strategy_params.rolling_window', 60)
+        rolling_window = min(default_window, len(returns) // 4)  # 配置天数或1/4数据长度
         if rolling_window >= 10:
             rolling_sharpe = returns.rolling(rolling_window).apply(
                 lambda x: self.calculate_sharpe_ratio(x) if len(x) >= 10 else np.nan
