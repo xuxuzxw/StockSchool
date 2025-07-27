@@ -1,0 +1,15 @@
+接口: stock_comment_detail_zlkp_jgcyd_em
+
+描述: 东方财富网-数据中心-特色数据-千股千评-主力控盘-机构参与度
+
+限量: 单次获取所有 symbol 的数据
+
+输入参数
+
+名称	类型	描述
+symbol	str	symbol="600000"
+输出参数
+
+名称	类型	描述
+交易日	object	-
+机构参与度	float64	注意单位: %

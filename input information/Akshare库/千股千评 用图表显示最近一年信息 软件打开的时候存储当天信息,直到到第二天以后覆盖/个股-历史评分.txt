@@ -1,0 +1,15 @@
+接口: stock_comment_detail_zhpj_lspf_em
+
+描述: 东方财富网-数据中心-特色数据-千股千评-综合评价-历史评分
+
+限量: 单次获取指定 symbol 的数据
+
+输入参数
+
+名称	类型	描述
+symbol	str	symbol="600000"
+输出参数
+
+名称	类型	描述
+日期	object	-
+评分	float64	-
