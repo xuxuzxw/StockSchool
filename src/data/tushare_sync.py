@@ -6,11 +6,11 @@ from loguru import logger
 from sqlalchemy import create_engine, text
 from datetime import datetime, timedelta
 import time
-from src.utils.config_loader import config
 
 # 添加项目根目录到Python路径
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
+from src.utils.config_loader import config
 from src.utils.db import get_db_engine
 from src.utils.retry import idempotent_retry
 

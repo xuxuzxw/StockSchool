@@ -12,6 +12,8 @@ StockSchool v1.1.6 全流程日度工作流调度脚本
 import os
 import sys
 from celery import chain, group
+import time # 导入 time 模块
+from celery.result import AsyncResult # 导入 AsyncResult
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -22,6 +24,7 @@ load_dotenv()
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.compute.tasks import (
+    app, # 导入 Celery app 实例
     sync_daily_data,
     sync_stock_data,
     calculate_daily_factors,
@@ -113,34 +116,153 @@ def run_full_workflow():
         logger.info("创建数据质量检查任务...")
         quality_task = weekly_quality_check.s()
         
-        # 定义任务链：上一个任务的成功是下一个任务开始的前提
-        # 这确保了数据同步完成后才会开始计算因子，以此类推。
-        workflow = chain(
-            sync_group,           # 并行数据同步
-            factor_group,         # 并行因子计算
-            training_task,        # AI模型训练
-            prediction_task,      # 批量预测
-            quality_task          # 质量检查
-        )
+        print("\n=== 工作流进度 ===")
+        start_time = datetime.now()
+        timeout_seconds = 7200 # 2小时超时
+
+        # 阶段1: 数据同步
+        logger.info("开始执行数据同步任务组...")
+        sync_group_result = sync_group.apply_async()
+        print(f"数据同步任务组已启动. Group ID: {sync_group_result.id}")
         
-        # 异步执行任务链
-        result = workflow.apply_async()
-        logger.info(f"Workflow started with chain ID: {result.id}")
-        print(f"Workflow started. Check Celery logs for progress. Chain ID: {result.id}")
-        
-        # 在实际生产中，你会让它在后台运行。
-        # 为了测试，我们可以等待结果：
-        print("等待工作流完成...（这可能需要一些时间）")
-        try:
-            final_result = result.get(timeout=7200)  # 2小时超时
-            logger.info("Workflow completed successfully.")
-            print("工作流执行完成！")
-            print(f"最终结果: {final_result}")
-            return True
-        except Exception as wait_error:
-            logger.error(f"等待工作流完成时出错: {wait_error}")
-            print(f"工作流可能仍在后台运行，Chain ID: {result.id}")
+        while not sync_group_result.ready():
+            elapsed_time = (datetime.now() - start_time).total_seconds()
+            if elapsed_time > timeout_seconds:
+                logger.error(f"数据同步任务组超时，Group ID: {sync_group_result.id}")
+                print("\n❌ 数据同步任务组执行超时！")
+                return False
+
+            all_children_ready = True
+            for i, child_result in enumerate(sync_group_result.children):
+                status = child_result.state
+                info = child_result.info
+                
+                if status == 'PROGRESS' and info:
+                    current_step = info.get('current_step', '未知步骤')
+                    progress = info.get('progress', 'N/A')
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 状态: {status} | 任务 {i+1} | 步骤: {current_step} | 进度: {progress}")
+                elif status == 'PENDING':
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 状态: {status} | 任务 {i+1} | 等待开始...")
+                    all_children_ready = False
+                elif status == 'STARTED':
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 状态: {status} | 任务 {i+1} | 已启动...")
+                    all_children_ready = False
+                elif status == 'SUCCESS':
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 状态: {status} | 任务 {i+1} | 完成.")
+                elif status == 'FAILURE':
+                    logger.error(f"数据同步任务 {i+1} 失败: {child_result.info}")
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 状态: {status} | 任务 {i+1} | 失败: {child_result.info}")
+                    return False # 任何一个子任务失败，整个工作流失败
+                else:
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 状态: {status} | 任务 {i+1}")
+                
+                if not child_result.ready():
+                    all_children_ready = False
+
+            if all_children_ready and sync_group_result.ready():
+                break # 所有子任务和组都已完成
+            
+            time.sleep(5) # 每5秒检查一次
+
+        if not sync_group_result.successful():
+            logger.error("数据同步任务组执行失败.")
+            print("\n❌ 数据同步任务组执行失败！")
             return False
+        logger.info("数据同步任务组完成.")
+        print("\n✅ 数据同步任务组完成！")
+
+        # 阶段2: 因子计算
+        logger.info("开始执行因子计算任务组...")
+        factor_group_result = factor_group.apply_async()
+        print(f"因子计算任务组已启动. Group ID: {factor_group_result.id}")
+
+        while not factor_group_result.ready():
+            elapsed_time = (datetime.now() - start_time).total_seconds()
+            if elapsed_time > timeout_seconds:
+                logger.error(f"因子计算任务组超时，Group ID: {factor_group_result.id}")
+                print("\n❌ 因子计算任务组执行超时！")
+                return False
+
+            all_children_ready = True
+            for i, child_result in enumerate(factor_group_result.children):
+                status = child_result.state
+                info = child_result.info
+
+                if status == 'PROGRESS' and info:
+                    processed_count = info.get('processed_count', 'N/A')
+                    total_count = info.get('total_count', 'N/A')
+                    progress = info.get('progress', 'N/A')
+                    current_stock = info.get('current_stock', 'N/A')
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 状态: {status} | 任务 {i+1} | 已处理: {processed_count}/{total_count} | 进度: {progress} | 当前股票: {current_stock}")
+                elif status == 'PENDING':
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 状态: {status} | 任务 {i+1} | 等待开始...")
+                    all_children_ready = False
+                elif status == 'STARTED':
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 状态: {status} | 任务 {i+1} | 已启动...")
+                    all_children_ready = False
+                elif status == 'SUCCESS':
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 状态: {status} | 任务 {i+1} | 完成.")
+                elif status == 'FAILURE':
+                    logger.error(f"因子计算任务 {i+1} 失败: {child_result.info}")
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 状态: {status} | 任务 {i+1} | 失败: {child_result.info}")
+                    return False # 任何一个子任务失败，整个工作流失败
+                else:
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 状态: {status} | 任务 {i+1}")
+
+                if not child_result.ready():
+                    all_children_ready = False
+            
+            if all_children_ready and factor_group_result.ready():
+                break # 所有子任务和组都已完成
+
+            time.sleep(5) # 每5秒检查一次
+
+        if not factor_group_result.successful():
+            logger.error("因子计算任务组执行失败.")
+            print("\n❌ 因子计算任务组执行失败！")
+            return False
+        logger.info("因子计算任务组完成.")
+        print("\n✅ 因子计算任务组完成！")
+
+        # 阶段3: AI模型训练
+        logger.info("开始执行AI模型训练任务...")
+        training_result = training_task.apply_async()
+        print(f"AI模型训练任务已启动. Task ID: {training_result.id}")
+        training_result.get(timeout=timeout_seconds) # 等待任务完成
+        if not training_result.successful():
+            logger.error("AI模型训练任务执行失败.")
+            print("\n❌ AI模型训练任务执行失败！")
+            return False
+        logger.info("AI模型训练任务完成.")
+        print("\n✅ AI模型训练任务完成！")
+
+        # 阶段4: 批量预测
+        logger.info("开始执行批量预测任务...")
+        prediction_result = prediction_task.apply_async()
+        print(f"批量预测任务已启动. Task ID: {prediction_result.id}")
+        prediction_result.get(timeout=timeout_seconds) # 等待任务完成
+        if not prediction_result.successful():
+            logger.error("批量预测任务执行失败.")
+            print("\n❌ 批量预测任务执行失败！")
+            return False
+        logger.info("批量预测任务完成.")
+        print("\n✅ 批量预测任务完成！")
+
+        # 阶段5: 数据质量检查
+        logger.info("开始执行数据质量检查任务...")
+        quality_result = quality_task.apply_async()
+        print(f"数据质量检查任务已启动. Task ID: {quality_result.id}")
+        quality_result.get(timeout=timeout_seconds) # 等待任务完成
+        if not quality_result.successful():
+            logger.error("数据质量检查任务执行失败.")
+            print("\n❌ 数据质量检查任务执行失败！")
+            return False
+        logger.info("数据质量检查任务完成.")
+        print("\n✅ 数据质量检查任务完成！")
+
+        logger.info("完整工作流执行完成！")
+        print("\n✅ 完整工作流执行完成！")
+        return True
             
     except Exception as e:
         logger.error(f"Failed to start workflow: {e}", exc_info=True)

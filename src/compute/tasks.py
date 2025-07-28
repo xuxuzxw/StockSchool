@@ -67,7 +67,7 @@ app.conf.update(
 )
 
 @app.task(bind=True, name='stockschool.sync_daily_data')
-def sync_daily_data(self, trade_date: Optional[str] = None):
+def sync_daily_data(self, trade_date: Optional[str] = None, test_mode: bool = False):
     """
     同步每日数据任务
     
@@ -84,12 +84,23 @@ def sync_daily_data(self, trade_date: Optional[str] = None):
             trade_date = sync.get_last_trade_date()
         
         # 同步基础数据
+        self.update_state(state='PROGRESS', meta={'current_step': '同步基础数据', 'progress': '20%'}) # 添加进度更新
+        logger.info("开始同步基础数据...")
         sync.sync_stock_basic()
         sync.sync_trade_calendar()
+        logger.info("基础数据同步完成。")
         
         # 同步交易数据
-        sync.update_daily_data(max_days=100)
-        sync.sync_indicator_data(start_date=trade_date)
+        self.update_state(state='PROGRESS', meta={'current_step': '同步交易数据', 'progress': '50%'}) # 添加进度更新
+        logger.info("开始同步交易数据...")
+        if test_mode:
+            logger.info("测试模式下，每日数据同步仅同步最近一天数据。")
+            sync.update_daily_data(max_days=1)
+            sync.sync_indicator_data(start_date=trade_date, end_date=trade_date)
+        else:
+            sync.update_daily_data(max_days=100)
+            sync.sync_indicator_data(start_date=trade_date)
+        logger.info("交易数据同步完成。")
         
         logger.info(f"每日数据同步完成: {trade_date}")
         return {'status': 'success', 'trade_date': trade_date}
@@ -129,7 +140,7 @@ def sync_stock_data(self, ts_code: str, start_date: str, end_date: str):
         self.retry(countdown=retry_countdown, max_retries=max_retries)
 
 @app.task(bind=True, name='stockschool.calculate_daily_factors')
-def calculate_daily_factors(self, trade_date: Optional[str] = None):
+def calculate_daily_factors(self, trade_date: Optional[str] = None, test_mode: bool = False):
     """
     计算每日因子任务
     
@@ -147,12 +158,17 @@ def calculate_daily_factors(self, trade_date: Optional[str] = None):
             trade_date = sync.get_last_trade_date()
         
         # 获取所有活跃股票
-        active_stocks = factor_engine.get_all_stocks()
+        if test_mode:
+            logger.info("测试模式下，每日因子计算仅计算少量股票。")
+            active_stocks = factor_engine.get_all_stocks()[:10] # 只取前10只股票进行测试
+        else:
+            active_stocks = factor_engine.get_all_stocks()
         
         success_count = 0
         error_count = 0
+        total_stocks = len(active_stocks)
         
-        for ts_code in active_stocks:
+        for i, ts_code in enumerate(active_stocks):
             try:
                 min_data_days = config.get('factor_params.min_data_days', 60)
                 from datetime import datetime, timedelta
@@ -165,9 +181,13 @@ def calculate_daily_factors(self, trade_date: Optional[str] = None):
                 else:
                     error_count += 1
                 
+                # 更新进度
+                progress_percentage = int(((i + 1) / total_stocks) * 100)
+                self.update_state(state='PROGRESS', meta={'current_stock': ts_code, 'processed_count': i + 1, 'total_count': total_stocks, 'progress': f'{progress_percentage}%'})
+                
                 progress_interval = config.get('data_sync_params.progress_interval', 100)
-                if success_count % progress_interval == 0:
-                    logger.info(f"已完成 {success_count} 只股票的因子计算")
+                if (i + 1) % progress_interval == 0 or (i + 1) == total_stocks:
+                    logger.info(f"已完成 {i + 1}/{total_stocks} 只股票的因子计算 ({progress_percentage}%) - 当前股票: {ts_code}")
                     
             except Exception as e:
                 logger.error(f"计算股票因子失败: {ts_code} - {e}")
