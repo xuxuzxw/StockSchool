@@ -502,6 +502,26 @@ class StockSchoolLogger:
         """获取告警历史"""
         return [alert.to_dict() for alert in self.alert_manager.alert_history[-limit:]]
     
+    def debug(self, message: str):
+        """记录调试信息"""
+        logger.debug(message)
+    
+    def info(self, message: str):
+        """记录信息"""
+        logger.info(message)
+    
+    def warning(self, message: str):
+        """记录警告"""
+        logger.warning(message)
+    
+    def error(self, message: str):
+        """记录错误"""
+        logger.error(message)
+    
+    def critical(self, message: str):
+        """记录严重错误"""
+        logger.critical(message)
+    
     def shutdown(self):
         """关闭日志器"""
         self.alert_manager.stop()

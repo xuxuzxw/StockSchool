@@ -301,6 +301,9 @@ class TushareSynchronizer:
     def _merge_financial_reports(self, income_df, balance_df, cashflow_df):
         """合并三大财务报表数据到financial_reports表"""
         try:
+            # 收集所有合并后的数据用于批量插入
+            merged_data_list = []
+            
             # 以利润表为基础，合并其他报表数据
             for _, income_row in income_df.iterrows():
                 # 查找对应的资产负债表和现金流量表数据
@@ -354,36 +357,81 @@ class TushareSynchronizer:
                         'c_cash_equ_end_period': cashflow_data.get('c_cash_equ_end_period'),
                     })
                 
-                # 插入或更新数据
-                self._upsert_financial_report(merged_data)
+                # 添加到批量处理列表
+                merged_data_list.append(merged_data)
+            
+            # 批量插入或更新数据
+            self._batch_upsert_financial_reports(merged_data_list)
                 
         except Exception as e:
             print(f"❌ 合并财务报表数据失败: {e}")
             raise
     
-    def _upsert_financial_report(self, data):
-        """插入或更新财务报表数据"""
+    def _batch_upsert_financial_reports(self, data_list):
+        """批量插入或更新财务报表数据，支持失败降级到逐条插入"""
+        if not data_list:
+            return
+
+        start_time = time.perf_counter()
         try:
-            # 构建SQL语句
-            columns = list(data.keys())
+            # 构建批量UPSERT SQL语句
+            columns = list(data_list[0].keys())
             placeholders = [f":{col}" for col in columns]
-            
+
+            # 排除主键和updated_at字段，这些字段不应在DO UPDATE SET中被EXCLUDED
+            update_cols = [f"{col} = EXCLUDED.{col}" for col in columns if col not in ['ts_code', 'end_date', 'report_type']]
+            update_set_clause = ', '.join(update_cols)
+
             sql = f"""
             INSERT INTO financial_reports ({', '.join(columns)})
             VALUES ({', '.join(placeholders)})
             ON CONFLICT (ts_code, end_date, report_type)
             DO UPDATE SET
-                {', '.join([f"{col} = EXCLUDED.{col}" for col in columns if col not in ['ts_code', 'end_date', 'report_type']])},
+                {update_set_clause},
                 updated_at = CURRENT_TIMESTAMP
             """
-            
+
             with self.engine.connect() as conn:
-                conn.execute(text(sql), data)
-                conn.commit()
-                
+                with conn.begin(): # 开启事务
+                    conn.execute(text(sql), data_list)
+            end_time = time.perf_counter()
+            print(f"✅ 批量插入 {len(data_list)} 条财务报表数据成功，耗时: {end_time - start_time:.4f} 秒")
+
         except Exception as e:
-            print(f"❌ 插入财务报表数据失败: {e}")
-            raise
+            print(f"❌ 批量插入财务报表数据失败: {e}，尝试回退到逐条插入模式...")
+            # 降级到逐条插入
+            self._fallback_upsert_financial_reports(data_list)
+
+    def _fallback_upsert_financial_reports(self, data_list):
+        """批量插入失败时的降级方案：逐条插入财务报表数据"""
+        print(f"开始逐条插入 {len(data_list)} 条财务报表数据...")
+        start_time = time.perf_counter()
+        success_count = 0
+        for i, data in enumerate(data_list):
+            try:
+                columns = list(data.keys())
+                placeholders = [f":{col}" for col in columns]
+                update_cols = [f"{col} = EXCLUDED.{col}" for col in columns if col not in ['ts_code', 'end_date', 'report_type']]
+                update_set_clause = ', '.join(update_cols)
+
+                sql = f"""
+                INSERT INTO financial_reports ({', '.join(columns)})
+                VALUES ({', '.join(placeholders)})
+                ON CONFLICT (ts_code, end_date, report_type)
+                DO UPDATE SET
+                    {update_set_clause},
+                    updated_at = CURRENT_TIMESTAMP
+                """
+                with self.engine.connect() as conn:
+                    with conn.begin(): # 开启事务
+                        conn.execute(text(sql), data)
+                success_count += 1
+            except Exception as e:
+                print(f"❌ 逐条插入第 {i+1} 条数据失败: {e}")
+        end_time = time.perf_counter()
+        print(f"✅ 逐条插入完成，成功 {success_count}/{len(data_list)} 条，耗时: {end_time - start_time:.4f} 秒")
+    
+
     
     @idempotent_retry()
     def sync_indicator_data(self, start_date=None):

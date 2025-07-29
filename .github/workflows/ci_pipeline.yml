@@ -1,0 +1,55 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        # 安装 Celery 相关的依赖，如果 requirements.txt 中没有包含
+        # pip install celery redis
+
+    - name: Run full test script
+      run: |
+        # 确保 Celery worker 和 Redis 服务在 CI/CD 环境中可用
+        # 这可能需要额外的配置，例如使用 Docker Compose 启动服务
+        # 对于简单的测试，可以尝试直接运行脚本，但如果脚本依赖于后台服务，则需要启动这些服务
+        # 例如：
+        # docker-compose up -d redis celery_worker
+        # sleep 10 # 等待服务启动
+        python scripts/full_test_v1_1_6.py
+
+    - name: Upload logs (optional)
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-logs
+        path: logs/
+
+    # 可以在这里添加更多的步骤，例如：
+    # - name: Run unit tests
+    #   run: pytest src/tests/
+
+    # - name: Build Docker image (if applicable)
+    #   run: docker build -t my-stock-school .
+
+    # - name: Deploy to staging (if applicable)
+    #   run: echo "Deploying..."

@@ -17,8 +17,8 @@
 
 import os
 import pandas as pd
+from datetime import datetime, timedelta
 import numpy as np
-from datetime import datetime
 from typing import List, Dict, Any, Optional, Union
 from sqlalchemy import create_engine, text, Engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -421,3 +421,64 @@ def get_trading_dates(start_date: Optional[str] = None,
                      end_date: Optional[str] = None) -> List[str]:
     """获取交易日历的便捷函数"""
     return get_db_manager().get_trading_dates(start_date, end_date)
+
+
+def detect_abnormal_data(table_name):
+    """
+    检测数据异常情况：
+    1. 数据量超过3个标准差(基于历史同期)
+    2. 最新数据日期早于当前日期3天以上
+    3. 存在未来日期记录
+    """
+    # 获取元数据
+    max_date = get_max_date(table_name)
+    record_count = get_record_count(table_name)
+    
+    # 与历史同期数据量对比
+    historical_avg = get_historical_average(table_name, time_range='30d')
+    std_dev = calculate_standard_deviation(table_name)
+    
+    # 构建异常检测规则
+    return any([
+        record_count > historical_avg + 3*std_dev,
+        (datetime.now() - max_date).days > 3,
+        has_future_records(table_name)
+    ])
+
+
+def get_max_date(table_name):
+    """获取表中最新数据日期"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT MAX(trade_date) FROM {table_name}")
+        result = cursor.fetchone()[0]
+        return datetime.strptime(result, '%Y%m%d') if result else None
+
+
+def get_record_count(table_name):
+    """获取表记录数"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+        return cursor.fetchone()[0]
+
+
+def get_historical_average(table_name, time_range='30d'):
+    """获取历史同期平均记录数"""
+    # 实现历史数据统计逻辑
+    return 1000  # 示例值，需根据实际数据调整
+
+
+def calculate_standard_deviation(table_name):
+    """计算历史数据量标准差"""
+    # 实现标准差计算逻辑
+    return 200  # 示例值，需根据实际数据调整
+
+
+def has_future_records(table_name):
+    """检查是否存在未来日期记录"""
+    today = datetime.now().strftime('%Y%m%d')
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT COUNT(*) FROM {table_name} WHERE trade_date > %s", (today,))
+        return cursor.fetchone()[0] > 0

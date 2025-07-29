@@ -5,6 +5,8 @@ import time
 from datetime import datetime
 import subprocess
 import argparse
+from src.utils.db import detect_abnormal_data, get_record_count, get_historical_average, calculate_standard_deviation, get_max_date, has_future_records
+from src.utils.config_loader import config
 
 def run_command(command, cwd=None, capture_output=False):
     """执行命令
@@ -183,6 +185,34 @@ def start_celery_worker():
     
     run_command("celery -A src.compute.tasks worker -l info -P eventlet")
 
+def init_database():
+    """初始化数据库"""
+    print("\n=== 数据库初始化 ===")
+    print("正在初始化数据库...")
+    
+    try:
+        # 导入数据库管理器
+        from src.utils.db import DatabaseManager
+        
+        # 创建数据库管理器实例
+        db_manager = DatabaseManager()
+        
+        # 读取并执行初始化脚本
+        init_script_path = "schema/init/extensions.sql"
+        if os.path.exists(init_script_path):
+            with open(init_script_path, 'r', encoding='utf-8') as f:
+                init_sql = f.read()
+            
+            # 直接执行整个SQL脚本，而不是分割执行
+            # 这样可以避免PL/pgSQL函数定义的语法问题
+            db_manager.execute_sql(init_sql)
+            print("✅ 数据库初始化完成")
+        else:
+            print(f"❌ 初始化脚本 {init_script_path} 不存在")
+    except Exception as e:
+        print(f"❌ 数据库初始化失败: {e}")
+
+
 def run_daily_workflow():
     """运行日常工作流"""
     print("\n=== 日常工作流 (Daily Operations) ===")
@@ -349,10 +379,11 @@ def main_menu():
         print("1. 启动API服务器")
         print("2. 运行数据同步")
         print("3. 运维和调试控制台")
+        print("4. 数据库初始化")
         print("0. 退出")
         print("="*50)
 
-        choice = input("请输入您的选择(0-3): ")
+        choice = input("请输入您的选择(0-4): ")
 
         if choice == "1":
             start_api_server()
@@ -360,6 +391,8 @@ def main_menu():
             run_data_sync()
         elif choice == "3":
             operations_menu()
+        elif choice == "4":
+            init_database()
 
         elif choice == "0":
             print("正在退出StockSchool。再见！")
@@ -384,10 +417,11 @@ if __name__ == "__main__":
     parser.add_argument('--fix-data-sync', action='store_true', help='数据修复和回填')
     parser.add_argument('--emergency-diagnosis', action='store_true', help='紧急情况诊断')
     parser.add_argument('--operations', action='store_true', help='运维和调试控制台')
+    parser.add_argument('--init-db', action='store_true', help='初始化数据库')
     
     args = parser.parse_args()
     
-    # 根据参数执行相应功能
+    # 根据命令行参数执行相应功能
     if args.api_server:
         start_api_server()
     elif args.data_sync:
@@ -406,6 +440,84 @@ if __name__ == "__main__":
         emergency_diagnosis()
     elif args.operations:
         operations_menu()
+    elif args.init_db:
+        init_database()
     else:
         # 如果没有指定参数，显示主菜单
         main_menu()
+
+
+def is_interactive_session():
+    """判断是否为交互模式"""
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def run_data_sync(mode):
+    """运行数据同步"""
+    print("正在运行数据同步...")
+    
+    if sync_type is None:
+        print("请选择同步类型:")
+        print("1. 完整同步")
+        print("2. 基本信息同步")
+        print("3. 交易日历同步")
+        print("4. 日线数据同步")
+        sync_choice = input("请输入您的选择(1-4): ")
+
+        sync_type = {
+            "1": "full",
+            "2": "basic",
+            "3": "calendar",
+            "4": "daily"
+        }.get(sync_choice)
+    
+    if sync_type in ["full", "basic", "calendar", "daily"]:
+        print(f"正在启动{sync_type}数据同步...")
+        run_command(["python", "src/data/tushare_sync.py", "--mode", sync_type])
+    else:
+        print("无效的同步类型选择。")
+
+    # 智能异常数据检测
+    if detect_abnormal_data('stock_daily') and not config.get('advanced.data_clean.auto_clean', False):
+        abnormal_reasons = []
+        current_count = get_record_count('stock_daily')
+        historical_avg = get_historical_average('stock_daily')
+        std_dev = calculate_standard_deviation('stock_daily')
+        
+        if current_count > historical_avg + 3 * std_dev:
+            abnormal_reasons.append(f'数据量异常(当前:{current_count}, 预期范围:{historical_avg-3*std_dev}~{historical_avg+3*std_dev})')
+        
+        max_date = get_max_date('stock_daily')
+        if max_date and (datetime.now() - max_date).days > config.get('advanced.data_clean.date_tolerance', 3):
+            abnormal_reasons.append(f'数据过期(最新日期:{max_date.strftime('%Y%m%d')}, 容忍天数:{config.get('advanced.data_clean.date_tolerance', 3)})')
+        
+        if has_future_records('stock_daily'):
+            abnormal_reasons.append('存在未来日期记录')
+        
+        print(f'⚠️ 检测到{len(abnormal_reasons)}项数据异常:')
+        for i, reason in enumerate(abnormal_reasons, 1):
+            print(f'  {i}. {reason}')
+        
+        if is_interactive_session():
+            print('\n请选择操作:')
+            print('1. 执行数据库清理并继续')
+            print('2. 忽略异常继续同步')
+            print('3. 取消操作并退出')
+            
+            choice = input('请输入选项(1-3): ').strip()
+            if choice == '1':
+                from scripts.clear_database import main as clear_db
+                clear_db()
+                print('✅ 数据库清理完成，继续同步流程...')
+            elif choice == '3':
+                print('❌ 用户取消操作')
+                sys.exit(1)
+        else:
+            print('📝 非交互模式下记录异常日志，继续同步流程')
+            # 记录异常日志的实现
+    
+    if sync_type in ["full", "basic", "calendar", "daily"]:
+        print(f"正在启动{sync_type}数据同步...")
+        run_command(["python", "src/data/tushare_sync.py", "--mode", sync_type])
+    else:
+        print("无效的同步类型选择。")

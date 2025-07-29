@@ -218,3 +218,10 @@ constants:
   trading_hours_per_day: 4
   market_open_time: "09:30"
   market_close_time: "15:00"
+
+advanced:
+  data_clean:
+    auto_clean: false  # 是否自动清理异常数据
+    alert_threshold: 3 # 标准差告警阈值
+    date_tolerance: 3  # 日期容忍天数
+    enable_telemetry: true # 上传匿名统计数据帮助改进检测算法

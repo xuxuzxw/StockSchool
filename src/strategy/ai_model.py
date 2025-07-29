@@ -21,11 +21,11 @@ import xgboost as xgb
 from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.ensemble import RandomForestRegressor
 
-from ..utils.config_loader import ConfigLoader
+from ..utils.config_loader import Config
 from ..utils.db import DatabaseManager
 from ..monitoring.logger import get_logger
 
-logger = get_logger(__name__)
+logger = get_logger()
 
 class AIModelTrainer:
     """
@@ -39,7 +39,7 @@ class AIModelTrainer:
         Args:
             config_path: 配置文件路径
         """
-        self.config = ConfigLoader(config_path).config if config_path else {}
+        self.config = Config().get('') if config_path else {}
         self.db_manager = DatabaseManager()
         self.models = {}
         self.scalers = {}
@@ -219,8 +219,7 @@ class AIModelTrainer:
             train_data,
             valid_sets=[valid_data] if valid_data else None,
             num_boost_round=100,
-            callbacks=[lgb.early_stopping(10)] if validation_split else None,
-            verbose_eval=False
+            callbacks=[lgb.early_stopping(10)] if validation_split else None
         )
         
         return model
@@ -235,11 +234,10 @@ class AIModelTrainer:
             model.fit(
                 X_train, y_train,
                 eval_set=[(X_test, y_test)],
-                early_stopping_rounds=10,
                 verbose=False
             )
         else:
-            model.fit(X_train, y_train)
+            model.fit(X_train, y_train, verbose=False)
         
         return model
     

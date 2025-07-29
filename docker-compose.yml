@@ -15,6 +15,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./schema:/app/schema
     networks:
       - stockschool_network
     restart: unless-stopped
