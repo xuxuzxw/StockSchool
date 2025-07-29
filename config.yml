@@ -147,6 +147,10 @@ data_sync_params:
   max_days: 30  # 日线数据最大更新天数
   sleep_interval: 0.3  # API调用间隔(秒)
   
+  # 行业数据同步参数
+  industry_batch_size: 500  # 行业数据批次大小
+  industry_sleep_interval: 0.3  # 行业数据API调用间隔
+  
   # 财务数据同步参数
   financial_data:
     start_date: "20200101"  # 财务数据开始日期

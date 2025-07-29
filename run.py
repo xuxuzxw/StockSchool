@@ -4,6 +4,7 @@ import sys
 import time
 from datetime import datetime
 import subprocess
+import argparse
 
 def run_command(command, cwd=None, capture_output=False):
     """执行命令
@@ -47,25 +48,28 @@ def start_api_server():
     # 如果需要后台运行，可以考虑使用nohup或screen，但为了简单起见，这里是阻塞的
     run_command(["uvicorn", "src.api.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"])
 
-def run_data_sync():
+def run_data_sync(sync_type=None):
+    """运行数据同步"""
     print("正在运行数据同步...")
-    print("请选择同步类型:")
-    print("1. 完整同步")
-    print("2. 基本信息同步")
-    print("3. 交易日历同步")
-    print("4. 日线数据同步")
-    sync_choice = input("请输入您的选择(1-4): ")
+    
+    if sync_type is None:
+        print("请选择同步类型:")
+        print("1. 完整同步")
+        print("2. 基本信息同步")
+        print("3. 交易日历同步")
+        print("4. 日线数据同步")
+        sync_choice = input("请输入您的选择(1-4): ")
 
-    sync_type = {
-        "1": "full",
-        "2": "basic",
-        "3": "calendar",
-        "4": "daily"
-    }.get(sync_choice)
-
-    if sync_type:
+        sync_type = {
+            "1": "full",
+            "2": "basic",
+            "3": "calendar",
+            "4": "daily"
+        }.get(sync_choice)
+    
+    if sync_type in ["full", "basic", "calendar", "daily"]:
         print(f"正在启动{sync_type}数据同步...")
-        run_command(["python", "src/data/tushare_sync.py", sync_type])
+        run_command(["python", "src/data/tushare_sync.py", "--mode", sync_type])
     else:
         print("无效的同步类型选择。")
 
@@ -177,7 +181,7 @@ def start_celery_worker():
     print("注意: 这将在前台运行，请保持此窗口打开")
     print("按 Ctrl+C 停止Worker\n")
     
-    run_command("celery -A src.compute.celery_app worker -l info -P eventlet")
+    run_command("celery -A src.compute.tasks worker -l info -P eventlet")
 
 def run_daily_workflow():
     """运行日常工作流"""
@@ -271,30 +275,71 @@ def operations_menu():
         print("\n=== StockSchool 运维控制台 ===")
         print("1. 飞行前检查 (Pre-Flight Check)")
         print("2. 启动Celery Worker")
-        print("3. 运行日常工作流")
-        print("4. 数据质量检验")
-        print("5. 数据修复和回填")
-        print("6. 紧急情况诊断")
-        print("7. 返回主菜单")
+        print("3. 手动触发Celery任务")
+        print("4. 运行日常工作流")
+        print("5. 数据质量检验")
+        print("6. 数据修复和回填")
+        print("7. 紧急情况诊断")
+        print("0. 返回主菜单")
         
-        choice = input("请选择操作 (1-7): ")
+        choice = input("请选择操作 (0-7): ")
         
         if choice == "1":
             pre_flight_check()
         elif choice == "2":
             start_celery_worker()
         elif choice == "3":
-            run_daily_workflow()
+            manual_celery_trigger()
         elif choice == "4":
-            data_quality_check()
+            run_daily_workflow()
         elif choice == "5":
-            fix_data_sync()
+            data_quality_check()
         elif choice == "6":
-            emergency_diagnosis()
+            fix_data_sync()
         elif choice == "7":
+            emergency_diagnosis()
+        elif choice == "0":
             break
         else:
             print("无效选择，请重试")
+
+def manual_celery_trigger():
+    """手动触发Celery任务"""
+    print("\n=== 手动触发Celery任务 ===")
+    print("请选择要触发的任务:")
+    print("1. 每日数据同步 (sync_daily_data)")
+    print("2. 每日因子计算 (calculate_daily_factors)")
+    print("0. 返回主菜单")
+
+    while True:
+        choice = input("请输入您的选择: ")
+        if choice == '1':
+            from src.compute.tasks import sync_daily_data
+            trade_date = input("请输入交易日期 (YYYYMMDD, 可选，留空则同步最新交易日): ")
+            test_mode_input = input("是否启用测试模式？(y/n，默认n): ").lower()
+            test_mode = True if test_mode_input == 'y' else False
+            if trade_date:
+                sync_daily_data.delay(trade_date=trade_date, test_mode=test_mode)
+            else:
+                sync_daily_data.delay(test_mode=test_mode)
+            print("每日数据同步任务已提交。")
+            break
+        elif choice == '2':
+            from src.compute.tasks import calculate_daily_factors
+            trade_date = input("请输入交易日期 (YYYYMMDD, 可选，留空则计算最新交易日): ")
+            test_mode_input = input("是否启用测试模式？(y/n，默认n): ").lower()
+            test_mode = True if test_mode_input == 'y' else False
+            if trade_date:
+                calculate_daily_factors.delay(trade_date=trade_date, test_mode=test_mode)
+            else:
+                calculate_daily_factors.delay(test_mode=test_mode)
+            print("每日因子计算任务已提交。")
+            break
+        elif choice == '0':
+            print("返回主菜单。")
+            break
+        else:
+            print("无效的选择，请重新输入。")
 
 def main_menu():
     while True:
@@ -304,10 +349,10 @@ def main_menu():
         print("1. 启动API服务器")
         print("2. 运行数据同步")
         print("3. 运维和调试控制台")
-        print("4. 退出")
+        print("0. 退出")
         print("="*50)
 
-        choice = input("请输入您的选择(1-4): ")
+        choice = input("请输入您的选择(0-3): ")
 
         if choice == "1":
             start_api_server()
@@ -315,7 +360,8 @@ def main_menu():
             run_data_sync()
         elif choice == "3":
             operations_menu()
-        elif choice == "4":
+
+        elif choice == "0":
             print("正在退出StockSchool。再见！")
             break
         else:
@@ -326,4 +372,40 @@ if __name__ == "__main__":
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.abspath(os.path.join(script_dir))
     os.chdir(project_root)
-    main_menu()
+    
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='StockSchool 主控制台')
+    parser.add_argument('--api-server', action='store_true', help='启动API服务器')
+    parser.add_argument('--data-sync', choices=['basic', 'calendar', 'daily', 'full'], help='运行数据同步 (basic/calendar/daily/full)')
+    parser.add_argument('--pre-flight-check', action='store_true', help='执行飞行前检查')
+    parser.add_argument('--celery-worker', action='store_true', help='启动Celery Worker')
+    parser.add_argument('--daily-workflow', action='store_true', help='运行日常工作流')
+    parser.add_argument('--data-quality-check', action='store_true', help='数据质量检查')
+    parser.add_argument('--fix-data-sync', action='store_true', help='数据修复和回填')
+    parser.add_argument('--emergency-diagnosis', action='store_true', help='紧急情况诊断')
+    parser.add_argument('--operations', action='store_true', help='运维和调试控制台')
+    
+    args = parser.parse_args()
+    
+    # 根据参数执行相应功能
+    if args.api_server:
+        start_api_server()
+    elif args.data_sync:
+        run_data_sync(args.data_sync)
+    elif args.pre_flight_check:
+        pre_flight_check()
+    elif args.celery_worker:
+        start_celery_worker()
+    elif args.daily_workflow:
+        run_daily_workflow()
+    elif args.data_quality_check:
+        data_quality_check()
+    elif args.fix_data_sync:
+        fix_data_sync()
+    elif args.emergency_diagnosis:
+        emergency_diagnosis()
+    elif args.operations:
+        operations_menu()
+    else:
+        # 如果没有指定参数，显示主菜单
+        main_menu()
