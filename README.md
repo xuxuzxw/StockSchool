@@ -298,6 +298,51 @@ python -m src.data.tushare_sync --action sync_trade_calendar
 
 # 同步日线数据
 python -m src.data.tushare_sync --action sync_daily --start-date 2024-01-01
+
+# 同步申万行业分类数据
+python -m src.data.tushare_sync --mode industry --level L1  # 同步一级行业
+python -m src.data.tushare_sync --mode industry --level L2  # 同步二级行业
+python -m src.data.tushare_sync --mode industry --level L3  # 同步三级行业
+python -m src.data.tushare_sync --mode industry_full        # 同步所有级别行业
+
+# 增量更新特定股票的行业数据
+python -m src.data.tushare_sync --mode industry_update --stock-file stock_list.txt
+```
+
+#### 申万行业分类同步说明
+
+系统支持申万行业分类数据的完整同步功能，包括以下特性：
+
+1. **多级行业支持**：支持申万L1/L2/L3三级行业分类数据同步
+2. **独立同步**：可独立同步指定级别的行业数据
+3. **完整同步**：可一次性同步所有级别的行业数据
+4. **增量更新**：支持对特定股票列表进行行业数据增量更新
+5. **批量处理**：采用批量API调用和数据库操作，提高同步效率
+6. **错误处理**：完善的异常处理机制，确保同步过程的稳定性
+
+使用示例：
+```bash
+# 同步申万一级行业数据
+python -m src.data.tushare_sync --mode industry --level L1
+
+# 同步申万二级行业数据
+python -m src.data.tushare_sync --mode industry --level L2
+
+# 同步申万三级行业数据
+python -m src.data.tushare_sync --mode industry --level L3
+
+# 同步所有级别的申万行业数据
+python -m src.data.tushare_sync --mode industry_full
+
+# 更新特定股票的行业数据（股票代码列表保存在文件中）
+python -m src.data.tushare_sync --mode industry_update --stock-file stocks.txt
+```
+
+股票代码文件格式（stocks.txt）示例：
+```
+000001.SZ
+000002.SZ
+600000.SH
 ```
 
 #### 数据修复和回填 (v1.1.6新增)

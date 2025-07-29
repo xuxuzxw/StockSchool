@@ -664,6 +664,10 @@ CREATE TABLE IF NOT EXISTS sw_industry_history (
     UNIQUE(ts_code, trade_date, sw_l1, sw_l2, sw_l3)
 );
 
+-- 为申万行业历史数据表创建唯一索引以支持高效UPSERT操作
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sw_industry_unique 
+ON sw_industry_history (ts_code, trade_date, sw_l1, sw_l2, sw_l3);
+
 SELECT create_hypertable('sw_industry_history', 'trade_date', if_not_exists => TRUE);
 
 -- ================================

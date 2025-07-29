@@ -439,6 +439,212 @@ class TushareSynchronizer:
             print(f"❌ 指标数据同步失败: {e}")
             raise
     
+    @idempotent_retry()
+    def sync_sw_industry(self, level='L1'):
+        """
+        同步申万行业分类数据
+        
+        Args:
+            level (str): 行业层级，可选 'L1', 'L2', 'L3'
+        """
+        logger.info(f"开始同步申万{level}行业分类数据...")
+        try:
+            # 验证参数
+            if level not in ['L1', 'L2', 'L3']:
+                raise ValueError(f"无效的行业层级: {level}")
+            
+            sleep_interval = self.config.get('data_sync_params.sleep_interval', 0.3)
+            if not isinstance(sleep_interval, (int, float)) or sleep_interval < 0:
+                logger.warning("配置的sleep_interval无效，使用默认值0.3秒")
+                sleep_interval = 0.3
+
+            # 获取行业列表
+            sw_df = self.pro.index_classify(level=level, src='SW')
+            if sw_df.empty:
+                logger.warning(f"未获取到申万{level}行业列表")
+                return
+
+            total_records = 0
+            error_count = 0
+            
+            # 批量获取所有行业的成分股
+            index_codes = ','.join(sw_df['index_code'].tolist())
+            all_members_df = self.pro.index_member(index_code=index_codes)
+            
+            if all_members_df.empty:
+                logger.warning("批量获取行业成分股失败")
+                return
+            
+            # 按行业处理数据
+            for _, sw_row in sw_df.iterrows():
+                try:
+                    index_code = sw_row['index_code']
+                    industry_name = sw_row['industry_name']
+                    
+                    # 从批量数据中筛选当前行业
+                    members_df = all_members_df[all_members_df['index_code'] == index_code]
+                    
+                    if members_df.empty:
+                        logger.warning(f"行业 {industry_name} 无成分股数据")
+                        continue
+
+                    # 数据验证
+                    if 'ts_code' not in members_df.columns or members_df['ts_code'].isnull().all():
+                        logger.warning(f"行业 {industry_name} 数据无效，缺少ts_code字段")
+                        continue
+                    
+                    # 添加行业层级信息
+                    if level == 'L1':
+                        members_df['sw_l1'] = industry_name
+                    elif level == 'L2':
+                        members_df['sw_l2'] = industry_name
+                    elif level == 'L3':
+                        members_df['sw_l3'] = industry_name
+
+                    # 确保所有层级字段存在
+                    for col in ['sw_l1', 'sw_l2', 'sw_l3']:
+                        if col not in members_df.columns:
+                            members_df[col] = None
+
+                    # 数据去重
+                    members_df = members_df.drop_duplicates(
+                        subset=['ts_code', 'trade_date', 'sw_l1', 'sw_l2', 'sw_l3']
+                    )
+
+                    # 批量UPSERT
+                    with self.engine.connect() as conn:
+                        for _, row in members_df.iterrows():
+                            conn.execute(text("""
+                                INSERT INTO sw_industry_history 
+                                (ts_code, trade_date, sw_l1, sw_l2, sw_l3, in_date, out_date)
+                                VALUES 
+                                (:ts_code, :trade_date, :sw_l1, :sw_l2, :sw_l3, :in_date, :out_date)
+                                ON CONFLICT (ts_code, trade_date, sw_l1, sw_l2, sw_l3)
+                                DO UPDATE SET
+                                    in_date = EXCLUDED.in_date,
+                                    out_date = EXCLUDED.out_date
+                            """), {
+                                'ts_code': row['ts_code'],
+                                'trade_date': row.get('trade_date', datetime.now().date()),
+                                'sw_l1': row.get('sw_l1'),
+                                'sw_l2': row.get('sw_l2'),
+                                'sw_l3': row.get('sw_l3'),
+                                'in_date': row.get('in_date'),
+                                'out_date': row.get('out_date')
+                            })
+                        conn.commit()
+                        
+                        total_records += len(members_df)
+                        logger.info(f"同步 {industry_name}: {len(members_df)} 只股票")
+                        
+                except Exception as e:
+                    error_count += 1
+                    logger.error(f"处理行业 {industry_name} 时出错: {e}")
+                    continue
+
+                # 频率控制
+                time.sleep(sleep_interval)
+
+            logger.info(f"申万{level}行业分类数据同步完成，共处理 {total_records} 条记录，{error_count} 个行业出错")
+            
+        except Exception as e:
+            logger.error(f"申万{level}行业分类数据同步失败: {e}", exc_info=True)
+            raise
+
+    def sync_sw_industry_full(self):
+        """
+        同步完整的申万行业分类数据（L1, L2, L3）
+        """
+        logger.info("开始同步完整的申万行业分类数据...")
+        try:
+            # 按层级同步
+            for level in ['L1', 'L2', 'L3']:
+                try:
+                    self.sync_sw_industry(level=level)
+                except Exception as e:
+                    logger.error(f"同步申万{level}行业数据失败: {e}")
+                    continue
+                    
+            logger.info("完整的申万行业分类数据同步完成")
+            
+        except Exception as e:
+            logger.error(f"完整的申万行业分类数据同步失败: {e}", exc_info=True)
+            raise
+
+    def update_sw_industry_for_stocks(self, stock_list=None):
+        """
+        更新指定股票列表的申万行业分类历史数据
+        
+        Args:
+            stock_list (list): 股票代码列表，如果为None则更新所有股票
+        """
+        logger.info("开始更新股票申万行业分类历史数据...")
+        try:
+            # 如果没有指定股票列表，则获取所有股票
+            if stock_list is None:
+                stocks_df = pd.read_sql("SELECT ts_code FROM stock_basic", self.engine)
+                stock_list = stocks_df['ts_code'].tolist()
+            
+            if not stock_list:
+                logger.warning("股票列表为空，无法更新行业分类")
+                return
+            
+            total_stocks = len(stock_list)
+            processed_count = 0
+            error_count = 0
+            
+            # 分批处理
+            batch_size = self.config.get('data_sync_params.batch_size', 1000)
+            
+            for i in range(0, total_stocks, batch_size):
+                batch_stocks = stock_list[i:i+batch_size]
+                logger.info(f"处理股票批次 {i//batch_size + 1}/{(total_stocks-1)//batch_size + 1}")
+                
+                try:
+                    # 批量获取行业数据
+                    batch_str = ','.join(batch_stocks)
+                    industry_df = self.pro.index_member(ts_code=batch_str, src='SW')
+                    
+                    if not industry_df.empty:
+                        # 批量插入/更新
+                        with self.engine.connect() as conn:
+                            for _, row in industry_df.iterrows():
+                                conn.execute(text("""
+                                    INSERT INTO sw_industry_history 
+                                    (ts_code, trade_date, sw_l1, sw_l2, sw_l3, in_date, out_date)
+                                    VALUES 
+                                    (:ts_code, :trade_date, :sw_l1, :sw_l2, :sw_l3, :in_date, :out_date)
+                                    ON CONFLICT (ts_code, trade_date, sw_l1, sw_l2, sw_l3)
+                                    DO UPDATE SET
+                                        in_date = EXCLUDED.in_date,
+                                        out_date = EXCLUDED.out_date
+                                """), {
+                                    'ts_code': row['ts_code'],
+                                    'trade_date': row.get('trade_date', datetime.now().date()),
+                                    'sw_l1': row.get('sw_l1'),
+                                    'sw_l2': row.get('sw_l2'),
+                                    'sw_l3': row.get('sw_l3'),
+                                    'in_date': row.get('in_date'),
+                                    'out_date': row.get('out_date')
+                                })
+                            conn.commit()
+                        
+                            processed_count += len(industry_df)
+                    
+                except Exception as e:
+                    error_count += 1
+                    logger.error(f"处理股票批次 {i//batch_size + 1} 时出错: {e}")
+                    continue
+                
+                # 控制API调用频率
+                time.sleep(self.config.get('data_sync_params.sleep_interval', 0.3))
+            
+            logger.info(f"股票申万行业分类历史数据更新完成，共处理 {processed_count} 条记录，{error_count} 个批次出错")
+            
+        except Exception as e:
+            logger.error(f"股票申万行业分类历史数据更新失败: {e}", exc_info=True)
+            raise
+    
     def full_sync(self):
         """完整同步：基本信息 + 交易日历 + 日线数据"""
         print("🚀 开始完整数据同步...")
@@ -458,6 +664,9 @@ class TushareSynchronizer:
             # 5. 同步指标数据
             self.sync_indicator_data()
             
+            # 6. 同步申万行业分类数据
+            self.sync_sw_industry_full()
+            
             print("🎉 完整数据同步完成！")
             
         except Exception as e:
@@ -468,12 +677,16 @@ if __name__ == '__main__':
     import argparse
     
     parser = argparse.ArgumentParser(description='Tushare数据同步工具')
-    parser.add_argument('--mode', choices=['basic', 'calendar', 'daily', 'financial', 'indicator', 'full'], 
+    parser.add_argument('--mode', choices=['basic', 'calendar', 'daily', 'financial', 'indicator', 'industry', 'industry_full', 'industry_update', 'full'], 
                        default='daily', help='同步模式')
     parser.add_argument('--days', type=int, 
                        help='日线数据更新天数（仅在daily模式下有效）')
     parser.add_argument('--start-date', type=str,
                        help='开始日期（格式：YYYYMMDD，适用于financial和indicator模式）')
+    parser.add_argument('--level', choices=['L1', 'L2', 'L3'], default='L1',
+                       help='行业层级（仅在industry模式下有效）')
+    parser.add_argument('--stock-file', type=str,
+                       help='股票代码文件路径（用于industry_update模式）')
     
     args = parser.parse_args()
     
@@ -492,10 +705,24 @@ if __name__ == '__main__':
             synchronizer.sync_financial_data(start_date=args.start_date)
         elif args.mode == 'indicator':
             synchronizer.sync_indicator_data(start_date=args.start_date)
+        elif args.mode == 'industry':
+            synchronizer.sync_sw_industry(level=args.level)
+        elif args.mode == 'industry_full':
+            synchronizer.sync_sw_industry_full()
+        elif args.mode == 'industry_update':
+            stock_list = None
+            if args.stock_file:
+                try:
+                    with open(args.stock_file, 'r') as f:
+                        stock_list = [line.strip() for line in f if line.strip()]
+                    logger.info(f"从文件加载了 {len(stock_list)} 个股票代码")
+                except Exception as e:
+                    logger.error(f"读取股票文件失败: {e}")
+            
+            synchronizer.update_sw_industry_for_stocks(stock_list=stock_list)
         elif args.mode == 'full':
             synchronizer.full_sync()
             
     except Exception as e:
-        print(f"💥 程序执行失败: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ 数据同步失败: {e}")
+        raise
