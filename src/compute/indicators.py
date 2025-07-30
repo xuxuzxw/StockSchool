@@ -161,6 +161,56 @@ class TechnicalIndicators:
             high = pd.Series(high)
         if isinstance(low, np.ndarray):
             low = pd.Series(low)
+
+    @staticmethod
+    def williams_r(high: Union[pd.Series, np.ndarray],
+                   low: Union[pd.Series, np.ndarray],
+                   close: Union[pd.Series, np.ndarray],
+                   window: int = None) -> pd.Series:
+        """威廉指标 (Williams %R)
+
+        Args:
+            high: 最高价数据
+            low: 最低价数据
+            close: 收盘价数据
+            window: 窗口期，默认14
+
+        Returns:
+            Williams %R值
+        """
+        if window is None:
+            window = config.get('factor_params.williams_r.window', 14)
+        if isinstance(high, np.ndarray):
+            high = pd.Series(high)
+        if isinstance(low, np.ndarray):
+            low = pd.Series(low)
+        if isinstance(close, np.ndarray):
+            close = pd.Series(close)
+
+        highest_high = high.rolling(window=window).max()
+        lowest_low = low.rolling(window=window).min()
+
+        williams_r = -100 * ((highest_high - close) / (highest_high - lowest_low))
+
+        return williams_r
+
+    @staticmethod
+    def momentum(data: Union[pd.Series, np.ndarray], window: int = None) -> pd.Series:
+        """动量指标 (Momentum)
+
+        Args:
+            data: 价格数据
+            window: 窗口期，默认10
+
+        Returns:
+            Momentum值
+        """
+        if window is None:
+            window = config.get('factor_params.momentum.window', 10)
+        if isinstance(data, np.ndarray):
+            data = pd.Series(data)
+
+        return data.diff(window)
         if isinstance(close, np.ndarray):
             close = pd.Series(close)
             
