@@ -130,6 +130,25 @@ feature_params:
   lookback_period: 14  # 回看周期
   shap_background_samples: 100  # SHAP背景样本数
   interaction_samples: 100  # 交互样本数
+  use_cuda: true          # 启用GPU加速
+  shap_batch_size: 500    # SHAP计算批量大小
+  max_cache_size: 40960   # 缓存限制（MB）
+  chunk_size: 10000       # 分块处理大小
+  max_gpu_memory: 20480    # 限制GPU显存使用（MB）
+  gpu_oom_retry: 3         # OOM重试次数
+  fallback_to_cpu: true    # GPU失败时自动回退到CPU
+  cache_explanations: true  # 启用解释结果缓存
+  cache_dir: ./cache/explanations  # 缓存目录
+  max_cache_entries: 2000   # 最大缓存条目数
+  explanation_timeout: 3600  # 解释计算超时时间（秒）
+  shap_max_objects: 10000   # SHAP计算最大对象数
+  shap_parallel: true       # SHAP并行计算
+  cuda_device: 0            # CUDA设备ID
+  memory_threshold: 0.8     # 内存阈值
+  batch_reduction_factor: 0.5  # 批量减少因子
+  max_batch_retries: 5      # 最大批量重试次数
+  windows_cuda_workaround: true  # Windows CUDA工作区处理
+  model_explainer_type: auto  # 模型解释器类型
   
 # 质量检查参数
 quality_params:
