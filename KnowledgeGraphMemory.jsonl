@@ -12,3 +12,16 @@
 {"type":"entity","name":"run.py","entityType":"File","observations":["项目启动和管理脚本，支持多种运行模式和数据同步操作"],"createdAt":"2025-08-02T15:21:24.939Z","version":1}
 {"type":"entity","name":"tests/test_export_service.py","entityType":"File","observations":["导出服务测试文件，用于验证数据导出功能的基本操作，包括CSV和JSON格式的导出及数据完整性验证"],"createdAt":"2025-08-02T15:21:24.939Z","version":1}
 {"type":"entity","name":"tests/test_run_operations.py","entityType":"File","observations":["运行操作测试文件，用于验证run.py模块中的命令执行功能，包括基本命令执行和输出捕获功能"],"createdAt":"2025-08-02T15:21:24.939Z","version":1}
+{"type":"entity","name":"TechnicalIndicators","entityType":"Class","observations":["技术指标计算类，提供各种常用技术分析指标的静态方法实现，如SMA、EMA、RSI、MACD、布林带、随机指标、威廉指标、动量指标、ATR等"],"createdAt":"2025-08-02T16:00:00.000Z","version":1}
+{"type":"entity","name":"FactorCalculator","entityType":"Class","observations":["因子计算器类，用于计算动量因子、趋势因子、波动率因子和成交量因子等技术因子"],"createdAt":"2025-08-02T16:00:00.000Z","version":1}
+{"type":"entity","name":"FundamentalIndicators","entityType":"Class","observations":["基本面指标计算类，提供计算ROE、ROA、营收同比增长率、净利润同比增长率、毛利率、净利率、资产负债率、流动比率、速动比率等基本面指标的静态方法"],"createdAt":"2025-08-02T16:00:00.000Z","version":1}
+{"type":"entity","name":"FundamentalFactorCalculator","entityType":"Class","observations":["基本面因子计算器类，用于计算盈利能力因子、成长性因子、杠杆因子和流动性因子等基本面因子"],"createdAt":"2025-08-02T16:00:00.000Z","version":1}
+{"type":"entity","name":"TechnicalIndicators.sma","entityType":"Method","observations":["简单移动平均线 (Simple Moving Average) 计算方法"],"createdAt":"2025-08-02T16:00:00.000Z","version":1}
+{"type":"entity","name":"TechnicalIndicators.ema","entityType":"Method","observations":["指数移动平均线 (Exponential Moving Average) 计算方法"],"createdAt":"2025-08-02T16:00:00.000Z","version":1}
+{"type":"entity","name":"TechnicalIndicators.rsi","entityType":"Method","observations":["相对强弱指数 (Relative Strength Index) 计算方法"],"createdAt":"2025-08-02T16:00:00.000Z","version":1}
+{"type":"entity","name":"TechnicalIndicators.macd","entityType":"Method","observations":["MACD指标 (Moving Average Convergence Divergence) 计算方法"],"createdAt":"2025-08-02T16:00:00.000Z","version":1}
+{"type":"entity","name":"TechnicalIndicators.bollinger_bands","entityType":"Method","observations":["布林带 (Bollinger Bands) 计算方法"],"createdAt":"2025-08-02T16:00:00.000Z","version":1}
+{"type":"entity","name":"TechnicalIndicators.stochastic","entityType":"Method","observations":["随机指标 (Stochastic Oscillator) 计算方法"],"createdAt":"2025-08-02T16:00:00.000Z","version":1}
+{"type":"entity","name":"TechnicalIndicators.williams_r","entityType":"Method","observations":["威廉指标 (Williams %R) 计算方法"],"createdAt":"2025-08-02T16:00:00.000Z","version":1}
+{"type":"entity","name":"TechnicalIndicators.momentum","entityType":"Method","observations":["动量指标 (Momentum) 计算方法"],"createdAt":"2025-08-02T16:00:00.000Z","version":1}
+{"type":"entity","name":"TechnicalIndicators.atr","entityType":"Method","observations":["平均真实波幅 (Average True Range) 计算方法"],"createdAt":"2025-08-02T16:00:00.000Z","version":1}
