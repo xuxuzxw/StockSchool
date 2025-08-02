@@ -1,5 +1,12 @@
 # StockSchool 量化投研系统
 
+## 📚 完整文档
+
+### 📖 用户文档
+- [📖 用户手册](./docs/user_manual.md) - 详细的系统使用指南
+- [🔧 部署指南](./docs/deployment_guide.md) - 生产环境部署和维护指南
+- [📊 API文档](./docs/api_documentation.md) - 完整的API接口文档
+
 ## 项目简介
 
 StockSchool是一个基于Python的量化投研系统，集成了数据获取、因子计算、策略评估、性能监控和告警等功能。本系统采用模块化设计，支持高度可配置化，适用于量化投资研究和策略开发。
@@ -27,6 +34,12 @@ StockSchool是一个基于Python的量化投研系统，集成了数据获取、
 - **训练流水线**: 完整的模型训练、验证、保存流程
 - **每日预测**: 自动化的每日股票预测脚本
 - **模型解释**: 支持SHAP值计算和特征重要性分析
+## 模型解释性功能
+- **特征重要性分析**：支持默认/排列/SHAP三种方法
+- **单样本解释**：提供SHAP值分解
+- **特征交互分析**：分析特征间交互作用
+- **可视化展示**：包括特征重要性图、SHAP总结图、预测解释图
+- **性能基准测试**：提供完整的性能验证框架
 - **批量预测**: 支持历史时间段的批量预测和回测
 
 ### 4. 全流程自动化调度
@@ -70,6 +83,100 @@ StockSchool是一个基于Python的量化投研系统，集成了数据获取、
 - **任务调度**: Celery分布式任务队列
 - **日志系统**: Python logging
 - **重试机制**: 自研重试装饰器
+
+## 硬件加速要求
+- **GPU支持**：需安装CUDA 11.7+驱动
+- **内存建议**：至少32GB RAM（推荐48GB）
+- **CPU要求**：支持多线程处理（推荐12核以上）
+- **依赖版本**：
+  - PyTorch 2.0.1+cu117
+  - SHAP 0.43.0
+  - mmap2 0.1.0
+  - pynvml (可选，用于GPU监控)
+
+## GPU工具模块
+StockSchool提供完整的GPU工具模块，支持：
+- **GPU可用性检测**：自动检测CUDA可用性并选择最优计算设备
+- **动态批量大小计算**：根据可用内存自动调整批量大小
+- **GPU内存监控**：实时监控GPU内存使用情况
+- **自动降级策略**：内存不足时自动降级到CPU模式
+- **内存不足处理**：智能处理OOM情况并自动重试
+
+### 核心功能
+
+#### 1. GPU管理器 (GPUManager)
+```python
+from src.utils.gpu_utils import GPUManager
+
+# 创建GPU管理器实例
+gpu_manager = GPUManager()
+
+# 检查GPU可用性
+if gpu_manager.is_gpu_available():
+    print("GPU可用")
+else:
+    print("使用CPU模式")
+
+# 获取设备信息
+device = gpu_manager.get_device()
+print(f"当前设备: {device}")
+
+# 获取详细GPU信息
+gpu_info = gpu_manager.get_gpu_info()
+print(f"GPU信息: {gpu_info}")
+```
+
+#### 2. 动态批量大小计算
+```python
+# 获取最优批量大小
+batch_size = gpu_manager.get_optimal_batch_size()
+print(f"推荐批量大小: {batch_size}")
+
+# 根据数据大小调整批量大小
+batch_size = gpu_manager.get_optimal_batch_size(data_size=10000)
+```
+
+#### 3. 内存监控与检查
+```python
+# 检查内存是否足够
+sufficient = gpu_manager.check_memory_sufficient(required_memory=1000)  # 1000MB
+print(f"内存是否足够: {sufficient}")
+
+# 处理内存不足情况
+if not sufficient:
+    should_retry = gpu_manager.handle_oom(retry_count=0, max_retries=3)
+```
+
+#### 4. 自动降级策略
+```python
+# 当GPU不可用或内存不足时自动降级到CPU
+cpu_device = gpu_manager.fallback_to_cpu()
+print(f"已降级到CPU: {cpu_device}")
+```
+
+### 便捷函数
+```python
+from src.utils.gpu_utils import (
+    get_device, is_gpu_available, get_gpu_info,
+    get_batch_size, check_memory_sufficient,
+    handle_oom, fallback_to_cpu
+)
+
+# 便捷函数使用
+device = get_device()
+available = is_gpu_available()
+info = get_gpu_info()
+batch_size = get_batch_size()
+sufficient = check_memory_sufficient(1000)
+should_retry = handle_oom(0, 3)
+cpu_device = fallback_to_cpu()
+```
+
+### 性能特点
+- **毫秒级响应**：设备切换和信息获取平均耗时小于1ms
+- **智能内存管理**：自动监控内存使用并调整批量大小
+- **优雅降级**：无缝切换CPU/GPU模式，保证程序连续运行
+- **异常处理**：完善的OOM处理和重试机制
 
 ## 系统架构
 

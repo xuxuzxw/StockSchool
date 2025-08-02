@@ -1,44 +1,191 @@
-import pandas as pd
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+模型解释器模块
+
+该模块提供多种模型解释方法，包括：
+1. 默认特征重要性
+2. 排列重要性
+3. SHAP值计算
+4. 单样本解释
+5. 特征交互分析
+6. 可视化功能
+
+作者: StockSchool Team
+创建时间: 2025-07-31
+"""
+
+import torch
+import shap
 import numpy as np
-from typing import Dict, List, Optional, Tuple, Any, Union
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.inspection import permutation_importance
-from sklearn.model_selection import cross_val_score
-from sklearn.metrics import mean_squared_error, r2_score
-import shap
-import warnings
-warnings.filterwarnings('ignore')
-import sys
-import os
-from loguru import logger
-from src.utils.config_loader import config
+from typing import Optional, Dict, List, Union, Any
+from pathlib import Path
+import joblib
+import logging
+from functools import wraps
+import time
 
-# 添加项目根目录到路径
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from src.utils.config_loader import config
+from src.utils.gpu_utils import (
+    get_device, get_batch_size, get_gpu_info, 
+    check_memory_sufficient, handle_oom, fallback_to_cpu
+)
+from src.monitoring.logger import get_logger
+
+logger = get_logger(__name__)
+
+class ModelExplainerError(Exception):
+    """模型解释器自定义异常"""
+    pass
 
 class ModelExplainer:
     """
-    模型解释器 - 解释机器学习模型的预测结果
+    模型解释器类，提供多种特征重要性计算方法和可视化功能
     """
     
-    def __init__(self, model, feature_names: List[str] = None):
+    def __init__(self, model, feature_names: List[str]):
         """
         初始化模型解释器
         
         Args:
-            model: 训练好的机器学习模型
+            model: 机器学习模型
             feature_names: 特征名称列表
         """
         self.model = model
         self.feature_names = feature_names
         self.explainer = None
-        self.shap_values = None
+        self.device = get_device()
+        self.cache_dir = Path(config.get('feature_params.cache_dir', './cache/explanations'))
+        self.cache_dir.mkdir(exist_ok=True, parents=True)
+        self.enable_cache = config.get('feature_params.cache_explanations', True)
+        self.max_cache_size = config.get('feature_params.max_cache_size', 1000)
+        
+        # Windows环境特定配置
+        self.windows_cuda_workaround = config.get('feature_params.windows_cuda_workaround', True)
+        
+        logger.info(f"ModelExplainer初始化完成，设备: {self.device}")
+    
+    def _get_model_type(self) -> str:
+        """获取模型类型"""
+        model_name = type(self.model).__name__.lower()
+        
+        if any(x in model_name for x in ['xgb', 'xgboost', 'lgb', 'lightgbm', 'catboost', 'tree', 'forest']):
+            return 'tree'
+        elif any(x in model_name for x in ['linear', 'logistic', 'ridge', 'lasso']):
+            return 'linear'
+        elif any(x in model_name for x in ['neural', 'mlp', 'cnn', 'rnn']):
+            return 'neural_network'
+        else:
+            return 'unknown'
+    
+    def _initialize_shap_explainer(self, X: pd.DataFrame):
+        """
+        初始化SHAP解释器（包含显存溢出处理）
+        
+        Args:
+            X: 特征数据
+        """
+        try:
+            model_type = self._get_model_type()
+            logger.info(f"检测到模型类型: {model_type}")
+            
+            if self.device.type == 'cuda':
+                # 根据模型类型选择合适的解释器
+                if model_type == 'tree':
+                    # 树模型使用TreeExplainer
+                    background_samples = config.get('feature_params.shap_background_samples', 100)
+                    background_data = X[:background_samples] if len(X) > background_samples else X
+                    
+                    # Windows环境下的CUDA工作区处理
+                    if self.windows_cuda_workaround:
+                        logger.info("应用Windows CUDA工作区处理")
+                        # 降低背景样本数量以减少内存使用
+                        background_data = background_data[:min(50, len(background_data))]
+                    
+                    self.explainer = shap.TreeExplainer(
+                        self.model, 
+                        background_data,
+                        model_output='raw',
+                        feature_perturbation='interventional'
+                    )
+                elif model_type == 'linear':
+                    # 线性模型使用LinearExplainer
+                    self.explainer = shap.LinearExplainer(self.model, X)
+                else:
+                    # 通用解释器
+                    background_samples = config.get('feature_params.shap_background_samples', 100)
+                    background_data = X[:background_samples] if len(X) > background_samples else X
+                    self.explainer = shap.Explainer(self.model, background_data)
+            else:
+                # CPU模式通用解释器
+                background_samples = config.get('feature_params.shap_background_samples', 100)
+                background_data = X[:background_samples] if len(X) > background_samples else X
+                self.explainer = shap.Explainer(self.model, background_data)
+                
+            logger.info("SHAP解释器初始化成功")
+            
+        except torch.cuda.OutOfMemoryError as e:
+            logger.warning(f"CUDA显存不足: {e}")
+            # 尝试降级到CPU
+            if config.get('feature_params.fallback_to_cpu', True):
+                logger.info("降级到CPU模式")
+                fallback_to_cpu()
+                self.device = get_device()
+                self._initialize_shap_explainer(X)
+            else:
+                raise ModelExplainerError(f"SHAP解释器初始化失败: {e}")
+        except Exception as e:
+            logger.error(f"初始化SHAP解释器失败: {e}")
+            raise ModelExplainerError(f"SHAP解释器初始化失败: {e}")
+    
+    def _get_cache_key(self, method: str, data_hash: str = None) -> str:
+        """生成缓存键"""
+        model_hash = str(hash(str(self.model)))
+        return f"{model_hash}_{method}_{data_hash or 'default'}"
+    
+    def _load_from_cache(self, cache_key: str) -> Optional[Any]:
+        """从缓存加载结果"""
+        if not self.enable_cache:
+            return None
+        
+        try:
+            cache_file = self.cache_dir / f"{cache_key}.pkl"
+            if cache_file.exists():
+                result = joblib.load(cache_file)
+                logger.info(f"从缓存加载结果: {cache_key}")
+                return result
+        except Exception as e:
+            logger.warning(f"加载缓存失败: {e}")
+        
+        return None
+    
+    def _save_to_cache(self, cache_key: str, result: Any):
+        """保存结果到缓存"""
+        if not self.enable_cache:
+            return
+        
+        try:
+            # 检查缓存大小
+            cache_files = list(self.cache_dir.glob("*.pkl"))
+            if len(cache_files) >= self.max_cache_size:
+                # 删除最旧的缓存文件
+                oldest_file = min(cache_files, key=lambda x: x.stat().st_mtime)
+                oldest_file.unlink()
+                logger.info(f"删除旧缓存文件: {oldest_file}")
+            
+            cache_file = self.cache_dir / f"{cache_key}.pkl"
+            joblib.dump(result, cache_file)
+            logger.info(f"结果已缓存: {cache_key}")
+        except Exception as e:
+            logger.warning(f"保存缓存失败: {e}")
     
     def calculate_feature_importance(self, X: pd.DataFrame, y: pd.Series = None, 
                                    method: str = 'default') -> pd.DataFrame:
         """
-        计算特征重要性
+        计算特征重要性（支持分批处理）
         
         Args:
             X: 特征数据
@@ -48,285 +195,339 @@ class ModelExplainer:
         Returns:
             特征重要性DataFrame
         """
-        if method == 'default':
-            return self._get_default_importance(X)
-        elif method == 'permutation':
-            return self._get_permutation_importance(X, y)
-        elif method == 'shap':
-            return self._get_shap_importance(X)
-        else:
-            raise ValueError(f"不支持的方法: {method}")
+        try:
+            # 生成缓存键
+            data_hash = str(hash(str(X.shape) + str(X.columns.tolist())))
+            cache_key = self._get_cache_key(f"importance_{method}", data_hash)
+            
+            # 检查缓存
+            cached_result = self._load_from_cache(cache_key)
+            if cached_result is not None:
+                return cached_result
+            
+            logger.info(f"计算特征重要性，方法: {method}")
+            
+            if method == 'default':
+                result = self._get_default_importance(X)
+            elif method == 'permutation':
+                if y is None:
+                    raise ValueError("排列重要性需要目标变量y")
+                result = self._get_permutation_importance(X, y)
+            elif method == 'shap':
+                result = self._get_shap_importance(X)
+            else:
+                raise ValueError(f"不支持的计算方法: {method}")
+            
+            # 保存到缓存
+            self._save_to_cache(cache_key, result)
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"特征重要性计算失败: {e}")
+            raise ModelExplainerError(f"特征重要性计算失败: {e}")
     
     def _get_default_importance(self, X: pd.DataFrame) -> pd.DataFrame:
-        """
-        获取模型默认的特征重要性
-        
-        Args:
-            X: 特征数据
-        
-        Returns:
-            特征重要性DataFrame
-        """
-        feature_names = self.feature_names or [f'feature_{i}' for i in range(X.shape[1])]
-        
-        if hasattr(self.model, 'feature_importances_'):
-            # 树模型等
-            importance = self.model.feature_importances_
-        elif hasattr(self.model, 'coef_'):
-            # 线性模型
-            importance = np.abs(self.model.coef_).flatten()
-        else:
-            logger.warning("模型不支持默认特征重要性，返回空结果")
-            importance = np.zeros(len(feature_names))
-        
-        importance_df = pd.DataFrame({
-            'feature': feature_names[:len(importance)],
-            'importance': importance
-        }).sort_values('importance', ascending=False)
-        
-        return importance_df
+        """获取默认特征重要性"""
+        try:
+            # 尝试从模型获取特征重要性
+            if hasattr(self.model, 'feature_importances_'):
+                importances = self.model.feature_importances_
+            elif hasattr(self.model, 'coef_'):
+                importances = np.abs(self.model.coef_)
+            else:
+                # 如果模型不支持默认重要性，使用方差方法
+                importances = np.var(X, axis=0)
+            
+            # 创建结果DataFrame
+            importance_df = pd.DataFrame({
+                'feature': self.feature_names,
+                'importance': importances
+            }).sort_values('importance', ascending=False)
+            
+            logger.info("默认特征重要性计算完成")
+            return importance_df
+            
+        except Exception as e:
+            logger.error(f"默认特征重要性计算失败: {e}")
+            # 返回基于方差的重要性
+            importances = np.var(X, axis=0)
+            return pd.DataFrame({
+                'feature': self.feature_names,
+                'importance': importances
+            }).sort_values('importance', ascending=False)
     
     def _get_permutation_importance(self, X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
-        """
-        计算排列重要性
-        
-        Args:
-            X: 特征数据
-            y: 目标变量
-        
-        Returns:
-            特征重要性DataFrame
-        """
-        if y is None:
-            raise ValueError("排列重要性需要提供目标变量y")
-        
-        feature_names = self.feature_names or [f'feature_{i}' for i in range(X.shape[1])]
-        
+        """获取排列重要性"""
         try:
+            from sklearn.inspection import permutation_importance
+            
+            # 检查内存是否足够
+            required_memory = len(X) * len(self.feature_names) * 8 / (1024**2)  # 估算内存需求(MB)
+            if not check_memory_sufficient(required_memory * 2):  # 预留缓冲
+                logger.warning("内存不足，降低批量大小")
+                # 减少样本数量
+                sample_size = min(1000, len(X))
+                X_sample = X.sample(n=sample_size, random_state=42)
+                y_sample = y.sample(n=sample_size, random_state=42)
+            else:
+                X_sample, y_sample = X, y
+            
+            # 计算排列重要性
             perm_importance = permutation_importance(
-                self.model, X, y, n_repeats=10, random_state=42
+                self.model, X_sample, y_sample,
+                n_repeats=10,
+                random_state=42,
+                n_jobs=1  # 避免多进程内存问题
             )
             
+            # 创建结果DataFrame
             importance_df = pd.DataFrame({
-                'feature': feature_names,
+                'feature': self.feature_names,
                 'importance': perm_importance.importances_mean,
                 'std': perm_importance.importances_std
             }).sort_values('importance', ascending=False)
             
+            logger.info("排列重要性计算完成")
             return importance_df
-        
+            
         except Exception as e:
-            logger.error(f"计算排列重要性失败: {e}")
-            return pd.DataFrame(columns=['feature', 'importance', 'std'])
+            logger.error(f"排列重要性计算失败: {e}")
+            raise ModelExplainerError(f"排列重要性计算失败: {e}")
     
     def _get_shap_importance(self, X: pd.DataFrame) -> pd.DataFrame:
-        """
-        计算SHAP重要性
-        
-        Args:
-            X: 特征数据
-        
-        Returns:
-            特征重要性DataFrame
-        """
+        """获取SHAP重要性"""
         try:
             # 初始化SHAP解释器
             if self.explainer is None:
                 self._initialize_shap_explainer(X)
             
-            # 计算SHAP值
-            if self.shap_values is None:
-                self.shap_values = self.explainer.shap_values(X)
+            # 获取批量大小
+            batch_size = get_batch_size(len(X))
+            max_objects = config.get('feature_params.shap_max_objects', 10000)
             
-            # 如果是多分类，取第一类的SHAP值
-            shap_vals = self.shap_values
-            if isinstance(shap_vals, list):
-                shap_vals = shap_vals[0]
+            # 限制数据大小以避免内存问题
+            if len(X) > max_objects:
+                logger.info(f"数据量过大({len(X)})，采样到{max_objects}")
+                X_sample = X.sample(n=max_objects, random_state=42)
+            else:
+                X_sample = X
             
-            # 计算特征重要性（SHAP值绝对值的均值）
-            feature_names = self.feature_names or [f'feature_{i}' for i in range(X.shape[1])]
-            importance = np.abs(shap_vals).mean(axis=0)
+            # 分批处理大型数据集
+            if len(X_sample) > batch_size:
+                logger.info(f"分批处理SHAP计算，批量大小: {batch_size}")
+                
+                # 获取背景数据用于SHAP计算
+                background_samples = min(100, len(X_sample))
+                background_data = X_sample[:background_samples]
+                
+                # 重新初始化解释器（使用较小的背景数据）
+                if self.windows_cuda_workaround:
+                    background_data = background_data[:min(50, len(background_data))]
+                
+                self._initialize_shap_explainer(background_data)
+                
+                # 计算SHAP值（只对样本子集）
+                sample_size = min(1000, len(X_sample))
+                X_subset = X_sample.sample(n=sample_size, random_state=42)
+                shap_values = self.explainer.shap_values(X_subset)
+            else:
+                # 直接计算SHAP值
+                shap_values = self.explainer.shap_values(X_sample)
             
+            # 处理SHAP值
+            if isinstance(shap_values, list):
+                # 多输出情况，取第一个输出
+                shap_values = shap_values[0]
+            
+            # 计算特征重要性（SHAP值的绝对值均值）
+            if len(shap_values.shape) == 1:
+                # 一维情况
+                importances = np.abs(shap_values)
+            else:
+                # 多维情况
+                importances = np.mean(np.abs(shap_values), axis=0)
+            
+            # 创建结果DataFrame
             importance_df = pd.DataFrame({
-                'feature': feature_names,
-                'importance': importance
+                'feature': self.feature_names[:len(importances)],
+                'importance': importances
             }).sort_values('importance', ascending=False)
             
+            logger.info("SHAP重要性计算完成")
             return importance_df
-        
-        except Exception as e:
-            logger.error(f"计算SHAP重要性失败: {e}")
-            return pd.DataFrame(columns=['feature', 'importance'])
-    
-    def _initialize_shap_explainer(self, X: pd.DataFrame):
-        """
-        初始化SHAP解释器
-        
-        Args:
-            X: 特征数据
-        """
-        try:
-            # 根据模型类型选择合适的解释器
-            model_name = type(self.model).__name__.lower()
             
-            if 'tree' in model_name or 'forest' in model_name or 'gbm' in model_name or 'xgb' in model_name or 'lgb' in model_name:
-                # 树模型
-                self.explainer = shap.TreeExplainer(self.model)
-            elif 'linear' in model_name or 'logistic' in model_name:
-                # 线性模型
-                self.explainer = shap.LinearExplainer(self.model, X)
-            else:
-                # 通用解释器
-                background_samples = config.get('feature_params.shap_background_samples', 100)
-                self.explainer = shap.Explainer(self.model, X[:background_samples])  # 使用前N个样本作为背景
-        
+        except torch.cuda.OutOfMemoryError as e:
+            logger.warning(f"SHAP计算显存不足: {e}")
+            # 尝试减小批量大小并重试
+            current_batch_size = config.get('feature_params.shap_batch_size', 500)
+            new_batch_size = max(50, int(current_batch_size * 0.5))
+            config.set('feature_params.shap_batch_size', new_batch_size)
+            logger.info(f"批量大小调整为: {new_batch_size}")
+            
+            # 重新尝试计算
+            return self._get_shap_importance(X)
+            
         except Exception as e:
-            logger.warning(f"初始化SHAP解释器失败: {e}，使用通用解释器")
-            try:
-                background_samples = config.get('feature_params.shap_background_samples', 100)
-                self.explainer = shap.Explainer(self.model.predict, X[:background_samples])
-            except:
-                logger.error("无法初始化SHAP解释器")
-                self.explainer = None
+            logger.error(f"SHAP重要性计算失败: {e}")
+            raise ModelExplainerError(f"SHAP重要性计算失败: {e}")
     
     def explain_prediction(self, X: pd.DataFrame, sample_idx: int = 0) -> Dict[str, Any]:
         """
-        解释单个预测结果
+        解释单个样本的预测
         
         Args:
             X: 特征数据
             sample_idx: 样本索引
-        
+            
         Returns:
-            解释结果字典
+            预测解释字典
         """
-        if sample_idx >= len(X):
-            raise ValueError(f"样本索引 {sample_idx} 超出范围")
-        
-        sample = X.iloc[sample_idx:sample_idx+1]
-        prediction = self.model.predict(sample)[0]
-        
-        explanation = {
-            'prediction': prediction,
-            'sample_index': sample_idx,
-            'feature_values': sample.iloc[0].to_dict()
-        }
-        
-        # 添加SHAP解释
         try:
+            # 生成缓存键
+            data_hash = str(hash(str(X.iloc[sample_idx].values)))
+            cache_key = self._get_cache_key("prediction_explanation", data_hash)
+            
+            # 检查缓存
+            cached_result = self._load_from_cache(cache_key)
+            if cached_result is not None:
+                return cached_result
+            
+            logger.info(f"解释预测，样本索引: {sample_idx}")
+            
+            # 初始化SHAP解释器
             if self.explainer is None:
                 self._initialize_shap_explainer(X)
             
-            if self.explainer is not None:
-                shap_values = self.explainer.shap_values(sample)
-                
-                if isinstance(shap_values, list):
-                    shap_values = shap_values[0]
-                
-                feature_names = self.feature_names or [f'feature_{i}' for i in range(len(shap_values[0]))]
-                
-                explanation['shap_values'] = dict(zip(feature_names, shap_values[0]))
-                explanation['base_value'] = self.explainer.expected_value
-                
-                if isinstance(explanation['base_value'], np.ndarray):
-                    explanation['base_value'] = explanation['base_value'][0]
-        
+            # 获取单个样本
+            single_sample = X.iloc[[sample_idx]]
+            
+            # 计算SHAP值
+            shap_values = self.explainer.shap_values(single_sample)
+            
+            # 处理SHAP值
+            if isinstance(shap_values, list):
+                shap_values = shap_values[0]
+            
+            if len(shap_values.shape) > 1:
+                shap_values = shap_values[0]
+            
+            # 获取基础值和预测值
+            base_value = getattr(self.explainer, 'expected_value', 0)
+            if hasattr(self.model, 'predict'):
+                prediction = self.model.predict(single_sample)[0]
+            else:
+                prediction = self.model(single_sample.values)[0]
+            
+            # 创建解释结果
+            feature_values = single_sample.iloc[0].values
+            explanation = {
+                'sample_idx': sample_idx,
+                'feature_names': self.feature_names,
+                'feature_values': feature_values,
+                'shap_values': shap_values,
+                'base_value': base_value,
+                'prediction': prediction,
+                'model_type': self._get_model_type()
+            }
+            
+            # 保存到缓存
+            self._save_to_cache(cache_key, explanation)
+            
+            return explanation
+            
         except Exception as e:
-            logger.warning(f"SHAP解释失败: {e}")
-        
-        return explanation
+            logger.error(f"预测解释失败: {e}")
+            raise ModelExplainerError(f"预测解释失败: {e}")
     
-    def analyze_feature_interactions(self, X: pd.DataFrame, max_features: int = 10) -> pd.DataFrame:
+    def analyze_feature_interactions(self, X: pd.DataFrame) -> pd.DataFrame:
         """
         分析特征交互作用
         
         Args:
             X: 特征数据
-            max_features: 最大特征数量
-        
+            
         Returns:
-            特征交互作用DataFrame
+            特征交互分析DataFrame
         """
         try:
-            if self.explainer is None:
-                self._initialize_shap_explainer(X)
+            logger.info("分析特征交互作用")
             
-            if self.explainer is None:
-                return pd.DataFrame()
+            # 简单的相关性分析作为特征交互的近似
+            correlation_matrix = X.corr()
             
-            # 计算SHAP交互值
-            interaction_samples = config.get('feature_params.interaction_samples', 100)
-            shap_interaction_values = self.explainer.shap_interaction_values(X[:min(interaction_samples, len(X))])
-            
-            # 计算特征交互强度
-            feature_names = self.feature_names or [f'feature_{i}' for i in range(X.shape[1])]
-            n_features = min(len(feature_names), max_features)
-            
+            # 找出高相关性的特征对
             interactions = []
-            for i in range(n_features):
-                for j in range(i+1, n_features):
-                    interaction_strength = np.abs(shap_interaction_values[:, i, j]).mean()
-                    interactions.append({
-                        'feature_1': feature_names[i],
-                        'feature_2': feature_names[j],
-                        'interaction_strength': interaction_strength
-                    })
+            for i in range(len(correlation_matrix.columns)):
+                for j in range(i+1, len(correlation_matrix.columns)):
+                    corr_value = correlation_matrix.iloc[i, j]
+                    if abs(corr_value) > 0.5:  # 高相关性阈值
+                        interactions.append({
+                            'feature1': correlation_matrix.columns[i],
+                            'feature2': correlation_matrix.columns[j],
+                            'correlation': corr_value,
+                            'interaction_strength': abs(corr_value)
+                        })
             
+            # 创建结果DataFrame
             interaction_df = pd.DataFrame(interactions).sort_values(
                 'interaction_strength', ascending=False
             )
             
+            logger.info(f"特征交互分析完成，发现{len(interaction_df)}个高相关性特征对")
             return interaction_df
-        
+            
         except Exception as e:
-            logger.error(f"分析特征交互作用失败: {e}")
+            logger.error(f"特征交互分析失败: {e}")
             return pd.DataFrame()
     
     def generate_model_summary(self, X: pd.DataFrame, y: pd.Series = None) -> Dict[str, Any]:
         """
-        生成模型总结报告
+        生成模型摘要
         
         Args:
             X: 特征数据
-            y: 目标变量
-        
-        Returns:
-            模型总结字典
-        """
-        summary = {
-            'model_type': type(self.model).__name__,
-            'n_features': X.shape[1],
-            'n_samples': X.shape[0]
-        }
-        
-        # 模型性能
-        if y is not None:
-            try:
-                predictions = self.model.predict(X)
-                summary['r2_score'] = r2_score(y, predictions)
-                summary['mse'] = mean_squared_error(y, predictions)
-                summary['rmse'] = np.sqrt(summary['mse'])
-                
-                # 交叉验证分数
-                cv_scores = cross_val_score(self.model, X, y, cv=5, scoring='r2')
-                summary['cv_r2_mean'] = cv_scores.mean()
-                summary['cv_r2_std'] = cv_scores.std()
+            y: 目标变量（可选）
             
-            except Exception as e:
-                logger.warning(f"计算模型性能失败: {e}")
-        
-        # 特征重要性
+        Returns:
+            模型摘要字典
+        """
         try:
-            importance_df = self.calculate_feature_importance(X, y, method='default')
-            summary['top_features'] = importance_df.head(10).to_dict('records')
+            logger.info("生成模型摘要")
+            
+            summary = {
+                'model_type': self._get_model_type(),
+                'feature_count': len(self.feature_names),
+                'feature_names': self.feature_names,
+                'device': str(self.device),
+                'cache_enabled': self.enable_cache,
+                'samples_count': len(X) if X is not None else 0
+            }
+            
+            # 如果提供了目标变量，计算一些基本统计
+            if y is not None:
+                summary['target_stats'] = {
+                    'mean': float(y.mean()),
+                    'std': float(y.std()),
+                    'min': float(y.min()),
+                    'max': float(y.max())
+                }
+            
+            # GPU信息（如果使用GPU）
+            if self.device.type == 'cuda':
+                gpu_info = get_gpu_info()
+                summary['gpu_info'] = gpu_info
+            
+            logger.info("模型摘要生成完成")
+            return summary
+            
         except Exception as e:
-            logger.warning(f"计算特征重要性失败: {e}")
-        
-        return summary
+            logger.error(f"模型摘要生成失败: {e}")
+            return {}
     
     def plot_feature_importance(self, X: pd.DataFrame, y: pd.Series = None, 
-                               method: str = 'default', top_n: int = None, 
-                               figsize: Tuple[int, int] = (10, 8)):
+                              method: str = 'default', top_n: int = 20,
+                              figsize: tuple = (12, 8)) -> plt.Figure:
         """
         绘制特征重要性图
         
@@ -335,199 +536,277 @@ class ModelExplainer:
             y: 目标变量
             method: 计算方法
             top_n: 显示前N个特征
-            figsize: 图表大小
-        """
-        if top_n is None:
-            top_n = config.get('strategy_params.max_display_items', 20)
+            figsize: 图形大小
             
-        importance_df = self.calculate_feature_importance(X, y, method)
-        
-        if importance_df.empty:
-            print("无法计算特征重要性")
-            return
-        
-        plt.figure(figsize=figsize)
-        
-        # 取前top_n个特征
-        plot_data = importance_df.head(top_n)
-        
-        # 创建水平条形图
-        bars = plt.barh(range(len(plot_data)), plot_data['importance'])
-        plt.yticks(range(len(plot_data)), plot_data['feature'])
-        plt.xlabel('重要性')
-        plt.title(f'特征重要性 ({method}方法)')
-        
-        # 添加数值标签
-        for i, bar in enumerate(bars):
-            width = bar.get_width()
-            plt.text(width, bar.get_y() + bar.get_height()/2, 
-                    f'{width:.3f}', ha='left', va='center')
-        
-        plt.gca().invert_yaxis()  # 最重要的特征在顶部
-        plt.tight_layout()
-        plt.show()
-    
-    def plot_shap_summary(self, X: pd.DataFrame, plot_type: str = 'bar', 
-                         max_display: int = None, figsize: Tuple[int, int] = (10, 8)):
+        Returns:
+            matplotlib图形对象
         """
-        绘制SHAP总结图
+        try:
+            logger.info(f"绘制特征重要性图，方法: {method}")
+            
+            # 计算特征重要性
+            importance_df = self.calculate_feature_importance(X, y, method)
+            
+            # 选择前N个特征
+            top_features = importance_df.head(top_n)
+            
+            # 创建图形
+            fig, ax = plt.subplots(figsize=figsize)
+            
+            # 绘制条形图
+            bars = ax.barh(range(len(top_features)), top_features['importance'], 
+                          color='skyblue', alpha=0.7)
+            
+            # 设置标签
+            ax.set_yticks(range(len(top_features)))
+            ax.set_yticklabels(top_features['feature'])
+            ax.set_xlabel('重要性')
+            ax.set_title(f'特征重要性 ({method.upper()}方法)')
+            ax.invert_yaxis()  # 重要性从高到低
+            
+            # 添加数值标签
+            for i, (bar, importance) in enumerate(zip(bars, top_features['importance'])):
+                ax.text(bar.get_width(), i, f'{importance:.4f}', 
+                       va='center', ha='left', fontsize=8)
+            
+            plt.tight_layout()
+            logger.info("特征重要性图绘制完成")
+            return fig
+            
+        except Exception as e:
+            logger.error(f"特征重要性图绘制失败: {e}")
+            raise ModelExplainerError(f"特征重要性图绘制失败: {e}")
+    
+    def plot_shap_summary(self, X: pd.DataFrame, plot_type: str = 'dot',
+                         figsize: tuple = (12, 8)) -> plt.Figure:
+        """
+        绘制SHAP摘要图
         
         Args:
             X: 特征数据
-            plot_type: 图表类型 ('bar', 'beeswarm', 'violin')
-            max_display: 最大显示特征数
-            figsize: 图表大小
-        """
-        if max_display is None:
-            max_display = config.get('strategy_params.max_display_items', 20)
+            plot_type: 图形类型 ('dot', 'bar', 'violin')
+            figsize: 图形大小
             
+        Returns:
+            matplotlib图形对象
+        """
         try:
+            logger.info(f"绘制SHAP摘要图，类型: {plot_type}")
+            
+            # 初始化SHAP解释器
             if self.explainer is None:
                 self._initialize_shap_explainer(X)
             
-            if self.explainer is None:
-                print("无法初始化SHAP解释器")
-                return
+            # 限制数据大小
+            max_samples = min(1000, len(X))
+            X_sample = X.sample(n=max_samples, random_state=42) if len(X) > max_samples else X
             
             # 计算SHAP值
-            sample_size = min(config.get('strategy_params.shap_sample_size', 1000), len(X))  # 限制样本数量以提高性能
-            X_sample = X.sample(n=sample_size, random_state=42)
             shap_values = self.explainer.shap_values(X_sample)
             
-            plt.figure(figsize=figsize)
+            # 处理SHAP值
+            if isinstance(shap_values, list):
+                shap_values = shap_values[0]
             
+            # 创建图形
+            fig, ax = plt.subplots(figsize=figsize)
+            
+            # 绘制不同类型的图
             if plot_type == 'bar':
-                shap.summary_plot(shap_values, X_sample, plot_type='bar', 
-                                max_display=max_display, show=False)
-            elif plot_type == 'beeswarm':
-                shap.summary_plot(shap_values, X_sample, 
-                                max_display=max_display, show=False)
+                shap.summary_plot(shap_values, X_sample, plot_type='bar', show=False)
             elif plot_type == 'violin':
-                shap.summary_plot(shap_values, X_sample, plot_type='violin',
-                                max_display=max_display, show=False)
+                shap.summary_plot(shap_values, X_sample, plot_type='violin', show=False)
+            else:  # dot plot
+                shap.summary_plot(shap_values, X_sample, show=False)
             
-            plt.title(f'SHAP特征重要性总结 ({plot_type})')
             plt.tight_layout()
-            plt.show()
-        
+            logger.info("SHAP摘要图绘制完成")
+            return fig
+            
         except Exception as e:
-            logger.error(f"绘制SHAP总结图失败: {e}")
-            print(f"绘制SHAP图表失败: {e}")
+            logger.error(f"SHAP摘要图绘制失败: {e}")
+            raise ModelExplainerError(f"SHAP摘要图绘制失败: {e}")
     
-    def plot_prediction_explanation(self, X: pd.DataFrame, sample_idx: int = 0, 
-                                  figsize: Tuple[int, int] = (12, 6)):
+    def plot_prediction_explanation(self, X: pd.DataFrame, sample_idx: int = 0,
+                                  figsize: tuple = (12, 8)) -> plt.Figure:
         """
-        绘制单个预测的解释图
+        绘制预测解释图
         
         Args:
             X: 特征数据
             sample_idx: 样本索引
-            figsize: 图表大小
+            figsize: 图形大小
+            
+        Returns:
+            matplotlib图形对象
         """
-        explanation = self.explain_prediction(X, sample_idx)
+        try:
+            logger.info(f"绘制预测解释图，样本索引: {sample_idx}")
+            
+            # 获取预测解释
+            explanation = self.explain_prediction(X, sample_idx)
+            
+            # 创建图形
+            fig, ax = plt.subplots(figsize=figsize)
+            
+            # 准备数据
+            features = explanation['feature_names']
+            shap_values = explanation['shap_values']
+            feature_values = explanation['feature_values']
+            
+            # 创建瀑布图数据
+            y_pos = np.arange(len(features))
+            
+            # 绘制条形图
+            colors = ['red' if val < 0 else 'blue' for val in shap_values]
+            bars = ax.barh(y_pos, shap_values, color=colors, alpha=0.7)
+            
+            # 设置标签
+            ax.set_yticks(y_pos)
+            ax.set_yticklabels([f"{feat}\n({val:.2f})" for feat, val in zip(features, feature_values)])
+            ax.set_xlabel('SHAP值')
+            ax.set_title(f'预测解释 - 样本 {sample_idx}')
+            ax.invert_yaxis()
+            
+            # 添加基准线
+            ax.axvline(x=0, color='black', linestyle='-', alpha=0.3)
+            
+            # 添加数值标签
+            for i, (bar, shap_val) in enumerate(zip(bars, shap_values)):
+                ax.text(bar.get_width(), i, f'{shap_val:.4f}', 
+                       va='center', ha='left' if shap_val >= 0 else 'right', fontsize=8)
+            
+            plt.tight_layout()
+            logger.info("预测解释图绘制完成")
+            return fig
+            
+        except Exception as e:
+            logger.error(f"预测解释图绘制失败: {e}")
+            raise ModelExplainerError(f"预测解释图绘制失败: {e}")
+
+# 便捷函数
+def create_model_explainer(model, feature_names: List[str]) -> ModelExplainer:
+    """
+    创建模型解释器的便捷函数
+    
+    Args:
+        model: 机器学习模型
+        feature_names: 特征名称列表
         
-        if 'shap_values' not in explanation:
-            print("无法获取SHAP解释")
-            return
+    Returns:
+        ModelExplainer实例
+    """
+    return ModelExplainer(model, feature_names)
+
+def explain_model_predictions(model, X: pd.DataFrame, feature_names: List[str],
+                            method: str = 'default', sample_idx: int = 0) -> Dict[str, Any]:
+    """
+    解释模型预测的便捷函数
+    
+    Args:
+        model: 机器学习模型
+        X: 特征数据
+        feature_names: 特征名称列表
+        method: 解释方法
+        sample_idx: 样本索引
         
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
+    Returns:
+        解释结果字典
+    """
+    explainer = ModelExplainer(model, feature_names)
+    results = {}
+    
+    # 计算特征重要性
+    results['feature_importance'] = explainer.calculate_feature_importance(X, method=method)
+    
+    # 解释单个预测
+    results['prediction_explanation'] = explainer.explain_prediction(X, sample_idx)
+    
+    # 生成模型摘要
+    results['model_summary'] = explainer.generate_model_summary(X)
+    
+    return results
+
+# 性能监控装饰器
+def performance_monitor(func):
+    """性能监控装饰器"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        start_memory = psutil.Process().memory_info().rss / 1024 / 1024  # MB
         
-        # 左图：SHAP值瀑布图
-        shap_values = list(explanation['shap_values'].values())
-        feature_names = list(explanation['shap_values'].keys())
-        
-        # 按绝对值排序
-        max_features_display = config.get('strategy_params.max_features_display', 15)
-        sorted_indices = np.argsort(np.abs(shap_values))[::-1][:max_features_display]  # 显示前N个
-        sorted_shap = [shap_values[i] for i in sorted_indices]
-        sorted_features = [feature_names[i] for i in sorted_indices]
-        
-        colors = ['red' if x < 0 else 'blue' for x in sorted_shap]
-        bars = ax1.barh(range(len(sorted_shap)), sorted_shap, color=colors, alpha=0.7)
-        ax1.set_yticks(range(len(sorted_shap)))
-        ax1.set_yticklabels(sorted_features)
-        ax1.set_xlabel('SHAP值')
-        ax1.set_title(f'样本 {sample_idx} 的特征贡献')
-        ax1.axvline(x=0, color='black', linestyle='-', alpha=0.3)
-        
-        # 添加数值标签
-        for i, bar in enumerate(bars):
-            width = bar.get_width()
-            ax1.text(width + (0.01 if width >= 0 else -0.01), 
-                    bar.get_y() + bar.get_height()/2,
-                    f'{width:.3f}', ha='left' if width >= 0 else 'right', va='center')
-        
-        ax1.invert_yaxis()
-        
-        # 右图：预测组成
-        base_value = explanation.get('base_value', 0)
-        prediction = explanation['prediction']
-        shap_sum = sum(shap_values)
-        
-        components = ['基准值', 'SHAP贡献', '预测值']
-        values = [base_value, base_value + shap_sum, prediction]
-        
-        ax2.bar(components, values, color=['gray', 'orange', 'green'], alpha=0.7)
-        ax2.set_ylabel('值')
-        ax2.set_title('预测值组成')
-        
-        # 添加数值标签
-        for i, v in enumerate(values):
-            ax2.text(i, v + 0.01, f'{v:.3f}', ha='center', va='bottom')
-        
-        plt.tight_layout()
-        plt.show()
-        
-        # 打印详细信息
-        print(f"\n样本 {sample_idx} 预测解释:")
-        print(f"预测值: {prediction:.4f}")
-        print(f"基准值: {base_value:.4f}")
-        print(f"SHAP贡献总和: {shap_sum:.4f}")
-        print("\n主要特征贡献:")
-        top_features_count = config.get('strategy_params.top_features_count', 10)
-        for feature, shap_val in zip(sorted_features[:top_features_count], sorted_shap[:top_features_count]):
-            print(f"  {feature}: {shap_val:.4f}")
+        try:
+            result = func(*args, **kwargs)
+            end_time = time.time()
+            end_memory = psutil.Process().memory_info().rss / 1024 / 1024  # MB
+            
+            logger.info(f"{func.__name__} 执行时间: {end_time - start_time:.2f}秒")
+            logger.info(f"{func.__name__} 内存变化: {end_memory - start_memory:.2f}MB")
+            
+            return result
+        except Exception as e:
+            end_time = time.time()
+            logger.error(f"{func.__name__} 执行失败，耗时: {end_time - start_time:.2f}秒")
+            raise
+    
+    return wrapper
+
+# Windows环境特定的错误处理
+def windows_error_handler(func):
+    """Windows环境错误处理装饰器"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            # Windows特定的错误处理
+            error_msg = str(e).lower()
+            if 'cuda' in error_msg or 'driver' in error_msg:
+                logger.warning(f"Windows CUDA错误: {e}")
+                logger.info("建议检查CUDA驱动版本和PyTorch兼容性")
+                logger.info("可以尝试设置 feature_params.windows_cuda_workaround = true")
+            
+            raise
+    
+    return wrapper
 
 if __name__ == '__main__':
     # 测试代码
-    print("测试模型解释模块...")
+    print("测试ModelExplainer模块...")
     
-    # 生成模拟数据
-    np.random.seed(42)
-    n_samples, n_features = 1000, 10
-    
-    X = pd.DataFrame(
-        np.random.randn(n_samples, n_features),
-        columns=[f'feature_{i}' for i in range(n_features)]
-    )
-    
-    # 创建目标变量（线性关系 + 噪声）
-    true_coef = np.random.randn(n_features)
-    y = X.dot(true_coef) + 0.1 * np.random.randn(n_samples)
-    
-    # 训练简单的线性模型
-    from sklearn.linear_model import LinearRegression
-    model = LinearRegression()
-    model.fit(X, y)
-    
-    # 创建解释器
-    explainer = ModelExplainer(model, X.columns.tolist())
-    
-    # 测试特征重要性
-    print("\n计算特征重要性...")
-    importance_df = explainer.calculate_feature_importance(X, y, method='default')
-    print(importance_df.head())
-    
-    # 测试单个预测解释
-    print("\n解释单个预测...")
-    explanation = explainer.explain_prediction(X, sample_idx=0)
-    print(f"预测值: {explanation['prediction']:.4f}")
-    
-    # 测试模型总结
-    print("\n生成模型总结...")
-    summary = explainer.generate_model_summary(X, y)
-    print(f"模型类型: {summary['model_type']}")
-    print(f"R²分数: {summary.get('r2_score', 'N/A'):.4f}")
-    print(f"RMSE: {summary.get('rmse', 'N/A'):.4f}")
-    
-    print("\n模型解释模块测试完成!")
+    # 创建简单的测试模型
+    try:
+        from sklearn.ensemble import RandomForestRegressor
+        import numpy as np
+        
+        # 创建测试数据
+        np.random.seed(42)
+        X_test = pd.DataFrame(np.random.rand(100, 5), 
+                             columns=['feature1', 'feature2', 'feature3', 'feature4', 'feature5'])
+        y_test = pd.Series(np.random.rand(100))
+        
+        # 训练简单模型
+        test_model = RandomForestRegressor(n_estimators=10, random_state=42)
+        test_model.fit(X_test, y_test)
+        
+        # 创建解释器
+        explainer = ModelExplainer(test_model, X_test.columns.tolist())
+        
+        # 测试功能
+        print("测试默认特征重要性...")
+        importance = explainer.calculate_feature_importance(X_test, method='default')
+        print(f"重要性结果形状: {importance.shape}")
+        
+        print("测试预测解释...")
+        explanation = explainer.explain_prediction(X_test, sample_idx=0)
+        print(f"解释结果键: {list(explanation.keys())}")
+        
+        print("测试模型摘要...")
+        summary = explainer.generate_model_summary(X_test, y_test)
+        print(f"摘要键: {list(summary.keys())}")
+        
+        print("ModelExplainer模块测试完成!")
+        
+    except Exception as e:
+        print(f"测试失败: {e}")
+        logger.error(f"ModelExplainer测试失败: {e}")

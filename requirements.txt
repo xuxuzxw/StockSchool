@@ -1,0 +1,60 @@
+# StockSchool 核心依赖
+torch==1.13.1+cu117
+torchvision==0.14.1+cu117
+torchaudio==0.13.1+cu117
+
+# 机器学习和数据处理
+scikit-learn==1.3.0
+pandas==2.0.3
+numpy==1.24.3
+scipy==1.10.1
+
+# 模型解释和可视化
+shap[cuda]==0.43.0
+matplotlib==3.7.2
+seaborn==0.12.2
+plotly==5.15.0
+kaleido==0.2.1
+
+# 数据处理和存储
+pyarrow==12.0.1
+pandas==2.0.3
+sqlite3==2.6.0
+psycopg2-binary==2.9.7
+
+# 系统监控和日志
+pynvml==11.5.0
+psutil==5.9.5
+loguru==0.7.0
+
+# Web框架和API
+fastapi==0.100.0
+uvicorn[standard]==0.23.1
+requests==2.31.0
+httpx==0.24.1
+
+# 异步处理和任务队列
+celery==5.3.1
+redis==4.6.0
+
+# 配置和工具
+PyYAML==6.0.1
+python-dotenv==1.0.0
+joblib==1.3.1
+
+# 测试框架
+pytest==7.4.0
+pytest-asyncio==0.21.0
+pytest-cov==4.1.0
+
+# 性能分析
+memory-profiler==0.61.0
+line-profiler==4.0.3
+
+# 数据获取
+tushare==1.2.88
+akshare==1.10.3
+
+# 其他工具
+mmap2==0.1.0
+tqdm==4.65.0
