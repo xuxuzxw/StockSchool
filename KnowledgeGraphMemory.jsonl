@@ -1,0 +1,14 @@
+{"type":"entity","name":"src/api/main.py","entityType":"File","observations":["StockSchool量化投研系统API主文件，使用FastAPI框架构建，包含系统健康检查、股票数据获取、因子计算、数据质量检查和策略评估等核心API端点"],"createdAt":"2025-08-02T15:21:24.938Z","version":1}
+{"type":"entity","name":"src/compute/factor_engine.py","entityType":"File","observations":["因子计算引擎模块，负责从数据库获取数据，计算技术因子和基本面因子，并存储结果"],"createdAt":"2025-08-02T15:21:24.938Z","version":1}
+{"type":"entity","name":"src/compute/indicators.py","entityType":"File","observations":["技术指标计算模块，提供各种常用技术分析指标的静态方法实现，如SMA、EMA、RSI、MACD等"],"createdAt":"2025-08-02T15:21:24.938Z","version":1}
+{"type":"entity","name":"src/utils/db.py","entityType":"File","observations":["数据库工具模块，提供数据库连接和操作功能"],"createdAt":"2025-08-02T15:21:24.939Z","version":1}
+{"type":"entity","name":"src/utils/config_loader.py","entityType":"File","observations":["配置加载模块，负责加载和管理项目配置"],"createdAt":"2025-08-02T15:21:24.939Z","version":1}
+{"type":"entity","name":"src/data/tushare_sync.py","entityType":"File","observations":["TuShare数据同步模块，负责从TuShare获取股票数据并存储到数据库"],"createdAt":"2025-08-02T15:21:24.939Z","version":1}
+{"type":"entity","name":"src/features/feature_store.py","entityType":"File","observations":["特征存储模块，用于管理和存储量化因子特征"],"createdAt":"2025-08-02T15:21:24.939Z","version":1}
+{"type":"entity","name":"src/strategy/evaluation.py","entityType":"File","observations":["策略评估模块，提供量化策略表现评估功能"],"createdAt":"2025-08-02T15:21:24.939Z","version":1}
+{"type":"entity","name":"src/monitoring/performance.py","entityType":"File","observations":["性能监控模块，负责系统性能指标的收集和监控"],"createdAt":"2025-08-02T15:21:24.939Z","version":1}
+{"type":"entity","name":"src/monitoring/alerts.py","entityType":"File","observations":["告警模块，负责系统告警功能"],"createdAt":"2025-08-02T15:21:24.939Z","version":1}
+{"type":"entity","name":"src/services/export_service.py","entityType":"File","observations":["导出服务模块，提供数据导出功能，支持多种格式（CSV、Excel、JSON）"],"createdAt":"2025-08-02T15:21:24.939Z","version":1}
+{"type":"entity","name":"run.py","entityType":"File","observations":["项目启动和管理脚本，支持多种运行模式和数据同步操作"],"createdAt":"2025-08-02T15:21:24.939Z","version":1}
+{"type":"entity","name":"tests/test_export_service.py","entityType":"File","observations":["导出服务测试文件，用于验证数据导出功能的基本操作，包括CSV和JSON格式的导出及数据完整性验证"],"createdAt":"2025-08-02T15:21:24.939Z","version":1}
+{"type":"entity","name":"tests/test_run_operations.py","entityType":"File","observations":["运行操作测试文件，用于验证run.py模块中的命令执行功能，包括基本命令执行和输出捕获功能"],"createdAt":"2025-08-02T15:21:24.939Z","version":1}
