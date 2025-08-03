@@ -49,6 +49,19 @@ class ModelTrainingPipeline:
         self.models_dir = Path(config.get('paths.models_dir', 'models'))
         self.models_dir.mkdir(exist_ok=True)
         
+        # 流水线状态和结果信息
+        self.pipeline_id: Optional[str] = None
+        self.start_time: Optional[datetime] = None
+        self.end_time: Optional[datetime] = None
+        self.status: str = "initialized"
+        self.error_message: Optional[str] = None
+        self.version: Optional[str] = None
+        self.model_path: Optional[str] = None
+        self.data_source: Optional[str] = None
+        self.feature_set: Optional[List[str]] = None
+        self.hyperparameters: Optional[Dict] = None
+        self.training_time: Optional[float] = None
+
         # 支持的模型类型
         self.model_classes = {
             'linear': LinearRegression,
@@ -544,6 +557,18 @@ class ModelTrainingPipeline:
         """
         logger.info(f"开始运行训练流水线: {model_name}")
         
+        # 初始化流水线状态
+        self.pipeline_id = f"{model_name}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        self.start_time = datetime.now()
+        self.status = "running"
+        self.model_path = None
+        self.error_message = None
+        self.version = None
+        self.data_source = f"factors: {', '.join(factor_names)}, dates: {start_date} to {end_date}"
+        self.feature_set = factor_names
+        self.hyperparameters = {config['type']: config.get('params', {}) for config in model_configs}
+        self.training_time = None
+
         # 1. 准备训练数据
         features, targets = self.prepare_training_data(
             factor_names, start_date, end_date, target_period, stock_list=stock_list
@@ -551,55 +576,73 @@ class ModelTrainingPipeline:
         
         if features.empty or targets.empty:
             logger.error("训练数据准备失败")
+            self.status = "failed"
+            self.error_message = "训练数据准备失败"
+            self.end_time = datetime.now()
             return {}
         
         # 2. 训练多个模型
         training_results = {}
         
-        for config in model_configs:
-            model_type = config['type']
-            model_params = config.get('params', {})
-            
-            try:
-                logger.info(f"训练模型: {model_type}")
+        try:
+            for config in model_configs:
+                model_type = config['type']
+                model_params = config.get('params', {})
                 
-                result = self.train_model(
-                    features=features,
-                    targets=targets,
-                    model_type=model_type,
-                    model_params=model_params
-                )
-                
-                training_results[model_type] = result
-                
-                # 保存模型
-                if save_models:
-                    model_path = self.save_model(
-                        result, 
-                        f"{model_name}_{model_type}"
+                try:
+                    logger.info(f"训练模型: {model_type}")
+                    
+                    result = self.train_model(
+                        features=features,
+                        targets=targets,
+                        model_type=model_type,
+                        model_params=model_params
                     )
-                    result['saved_path'] = model_path
-                
-            except Exception as e:
-                logger.error(f"模型 {model_type} 训练失败: {str(e)}")
-                continue
-        
-        # 3. 选择最佳模型
-        best_model = self._select_best_model(training_results)
-        
-        pipeline_result = {
-            'model_name': model_name,
-            'factor_names': factor_names,
-            'date_range': {'start': start_date, 'end': end_date},
-            'target_period': target_period,
-            'training_results': training_results,
-            'best_model': best_model,
-            'total_samples': len(features),
-            'completed_at': datetime.now().isoformat()
-        }
-        
-        logger.info(f"训练流水线完成，最佳模型: {best_model['model_type'] if best_model else 'None'}")
-        return pipeline_result
+                    
+                    training_results[model_type] = result
+                    
+                    # 保存模型
+                    if save_models:
+                        model_path = self.save_model(
+                            result, 
+                            f"{model_name}_{model_type}"
+                        )
+                        result['saved_path'] = model_path
+                    
+                except Exception as e:
+                    logger.error(f"模型 {model_type} 训练失败: {str(e)}")
+                    self.error_message = f"模型 {model_type} 训练失败: {str(e)}"
+                    continue
+            
+            # 3. 选择最佳模型
+            best_model = self._select_best_model(training_results)
+            
+            pipeline_result = {
+                'model_name': model_name,
+                'factor_names': factor_names,
+                'date_range': {'start': start_date, 'end': end_date},
+                'target_period': target_period,
+                'training_results': training_results,
+                'best_model': best_model,
+                'total_samples': len(features),
+                'completed_at': datetime.now().isoformat()
+            }
+
+            # 更新流水线状态
+            self.end_time = datetime.now()
+            self.status = "completed"
+            if best_model and 'saved_path' in best_model:
+                self.model_path = best_model['saved_path']
+                self.version = best_model.get('version') # Assuming version is part of saved model metadata
+            self.training_time = (self.end_time - self.start_time).total_seconds() if self.start_time else None
+
+            return pipeline_result
+        except Exception as e:
+            logger.error(f"运行训练流水线失败: {str(e)}")
+            self.status = "failed"
+            self.error_message = f"运行训练流水线失败: {str(e)}"
+            self.end_time = datetime.now()
+            return {}
     
     def _select_best_model(self, training_results: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """选择最佳模型

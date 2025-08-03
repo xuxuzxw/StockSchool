@@ -168,6 +168,336 @@ StockSchool是一个基于Python的量化投研系统，集成了数据获取、
   - **数据清理**：检查并确认无瞬时数据（行号、变量值）和冗余注释类观察值
   - **实体增补**：重新创建12个方法实体，确保命名一致性
   - **关系建立**：成功创建17个关系实体，包括类与方法的包含关系和方法间的调用关系
+  - **ModelTrainingPipeline类及其方法实体和关系创建**：
+    - 为`ModelTrainingPipeline`类创建了实体，并添加了功能描述、特性说明和实现细节的观察值。
+    - 为`ModelTrainingPipeline`类的`__init__`方法创建了实体，并添加了功能描述的观察值。
+    - 为`ModelTrainingPipeline`类的`prepare_training_data`方法创建了实体，并添加了功能描述的观察值。
+    - 为`ModelTrainingPipeline`类的`_calculate_target_returns`方法创建了实体，并添加了功能描述的观察值。
+    - 为`ModelTrainingPipeline`类的`_clean_training_data`方法创建了实体，并添加了功能描述的观察值。
+    - 为`ModelTrainingPipeline`类的`train_model`方法创建了实体，并添加了功能描述的观察值。
+    - 为`ModelTrainingPipeline`类的`_get_default_model_params`方法创建了实体，并添加了功能描述的观察值。
+    - 为`ModelTrainingPipeline`类的`_calculate_metrics`方法创建了实体，并添加了功能描述的观察值。
+    - 为`ModelTrainingPipeline`类的`_get_feature_importance`方法创建了实体，并添加了功能描述的观察值。
+    - 为`ModelTrainingPipeline`类的`save_model`方法创建了实体，并添加了功能描述的观察值。
+    - 为`ModelTrainingPipeline`类的`load_model`方法创建了实体，并添加了功能描述的观察值。
+    - 为 `ModelTrainingPipeline` 类的 `run_training_pipeline` 方法创建了实体，并添加了功能描述的观察值，包括运行完整的训练流水线（数据准备、模型训练、模型保存和最佳模型选择）、初始化流水线状态和元数据、处理数据准备和模型训练过程中的异常，以及在流水线结束时更新状态和结果。
+- 为 `ModelTrainingPipeline` 类的 `_select_best_model` 方法创建了实体，并添加了功能描述的观察值，包括从多个训练结果中选择最佳模型，以及根据测试集R²指标选择最佳模型。
+- **StockPredictor 类及其方法实体创建**：
+  - 为 `StockPredictor` 类创建实体，并添加功能描述。
+  - 为 `__init__` 方法创建实体，并添加功能描述。
+  - 为 `load_model` 方法创建实体，并添加功能描述。
+  - 为 `get_latest_factors` 方法创建实体，并添加功能描述。
+  - 为 `prepare_prediction_data` 方法创建实体，并添加功能描述。
+  - 为 `make_predictions` 方法创建实体，并添加功能描述。
+  - 为 `save_predictions` 方法创建实体，并添加功能描述。
+  - 为 `get_stock_info` 方法创建实体，并添加功能描述。
+  - 为 `generate_prediction_report` 方法创建实体，并添加功能描述。
+  - 为 `run_daily_prediction` 方法创建实体，并添加功能描述。
+  - 为 `main` 函数创建实体，并添加功能描述。
+- 为 `src/api/explainer_api.py` 知识图谱实体创建：
+  - 为 `explainer_api.py` 文件创建实体，并添加功能描述。
+  - 为 `ExplainRequest` 类创建实体，并添加功能描述。
+  - 为 `ExplainRequest` 类与 `src/api/explainer_api.py` 文件之间创建 `contains` 关系。
+- **TechnicalIndicators 类及其方法实体和关系创建**：
+  - 为 `TechnicalIndicators` 类创建了实体，并将其标记为 `Class` 类型，观察值为“技术指标计算类”。
+  - 为 `TechnicalIndicators` 类与 `src/compute/indicators.py` 文件之间创建了 `contains` 关系。
+  - 为 `TechnicalIndicators` 类中的 `sma` 方法创建了实体，并将其标记为 `Method` 类型，观察值为“简单移动平均线 (Simple Moving Average)”。
+  - 为 `TechnicalIndicators.sma` 方法与 `TechnicalIndicators` 类之间创建了 `contains` 关系。
+  - 为 `TechnicalIndicators` 类中的 `ema` 方法创建了实体，并将其标记为 `Method` 类型，观察值为“指数移动平均线 (Exponential Moving Average)”。
+  - 为 `TechnicalIndicators.ema` 方法与 `TechnicalIndicators` 类之间创建了 `contains` 关系。
+  - 为 `TechnicalIndicators` 类中的 `rsi` 方法创建了实体，并将其标记为 `Method` 类型，观察值为“相对强弱指数 (Relative Strength Index)”。
+  - 为 `TechnicalIndicators.rsi` 方法与 `TechnicalIndicators` 类之间创建了 `contains` 关系。
+  - 为 `TechnicalIndicators` 类中的 `macd` 方法创建了实体，并将其标记为 `Method` 类型，观察值为“MACD 指标 (Moving Average Convergence Divergence)”。
+  - 为 `TechnicalIndicators.macd` 方法与 `TechnicalIndicators` 类之间创建了 `contains` 关系。
+  - 为 `TechnicalIndicators` 类中的 `bollinger_bands` 方法创建了实体，并将其标记为 `Method` 类型，观察值为“布林带 (Bollinger Bands)”。
+  - 为 `TechnicalIndicators.bollinger_bands` 方法与 `TechnicalIndicators` 类之间创建了 `contains` 关系。
+  - 为 `TechnicalIndicators` 类中的 `stochastic_oscillator` 方法创建了实体，并将其标记为 `Method` 类型，观察值为“随机指标 (Stochastic Oscillator)”。
+  - 为 `TechnicalIndicators.stochastic_oscillator` 方法与 `TechnicalIndicators` 类之间创建了 `contains` 关系。
+  - 为 `TechnicalIndicators` 类中的 `williams_r` 方法创建了实体，并将其标记为 `Method` 类型，观察值为“威廉指标 (Williams %R)”。
+  - 为 `TechnicalIndicators.williams_r` 方法与 `TechnicalIndicators` 类之间创建了 `contains` 关系.关系。
+- 为 `src/api/main.py` 文件中的依赖注入函数（`get_database`, `get_tushare_syncer`, `get_factor_engine`, `get_quality_monitor`, `get_strategy_analyzer`, `get_explainer`）创建知识图谱实体和与 `src/api/main.py` 的 `contains` 关系。
+- 为 `src/api/main.py` 文件中的 API 路由函数（`/health`, `/api/v1/stocks/basic`, `/api/v1/stocks/{ts_code}/daily`, `/api/v1/factors/{factor_name}/values`, `/api/v1/data/sync/basic`, `/api/v1/data/sync/daily/{ts_code}`, `/api/v1/factors/calculate/{ts_code}`, `/api/v1/quality/check/{ts_code}`, `/api/v1/strategy/evaluate`, `/api/v1/monitoring/performance`, `/api/v1/monitoring/alerts`）创建知识图谱实体和与 `src/api/main.py` 的 `contains` 关系。
+- 为 `src/compute/factor_engine.py` 文件中的 `FactorEngine` 类及其方法（`__init__`, `get_stock_data`, `get_all_stocks`, `create_factor_tables`, `calculate_stock_factors`）创建知识图谱实体和关系。
+  - 为 `BatchExplainRequest` 类创建实体，并添加功能描述。
+  - 为 `BatchExplainRequest` 类与 `src/api/explainer_api.py` 文件之间创建 `contains` 关系。
+  - 为 `FeatureImportanceRequest` 模型创建知识图谱实体（Class），观察值为“特征重要性请求模型”。
+  - 为 `FeatureImportanceRequest` 类与 `src/api/explainer_api.py` 文件之间创建 `contains` 关系。
+  - 为 `ExplainResponse` 模型创建知识图谱实体（Class），观察值为“预测解释响应模型”。
+  - 为 `ExplainResponse` 类与 `src/api/explainer_api.py` 文件之间创建 `contains` 关系。
+  - 为 `BatchExplainResponse` 模型创建知识图谱实体（Class），观察值为“批量预测解释响应模型”。
+  - 为 `BatchExplainResponse` 类与 `src/api/explainer_api.py` 文件之间创建 `contains` 关系。
+  - 为 `FeatureImportanceResponse` 模型创建知识图谱实体（Class），观察值为“特征重要性响应模型”。
+  - 为 `FeatureImportanceResponse` 类与 `src/api/explainer_api.py` 文件之间创建 `contains` 关系。
+  - 为 `load_model` 函数创建知识图谱实体（Function），观察值为“加载解释器模型”。
+  - 为 `load_model` 函数与 `src/api/explainer_api.py` 文件之间创建 `contains` 关系。
+  - 为 `/api/v1/explain/prediction` 路由函数创建知识图谱实体（APIEndpoint），观察值为“预测解释路由”。
+  - 为 `/api/v1/explain/prediction` 路由函数与 `src/api/explainer_api.py` 文件之间创建 `contains` 关系。
+  - 为 `/api/v1/explain/batch` 路由函数创建知识图谱实体（APIEndpoint），观察值为“批量预测解释路由”。
+  - 为 `/api/v1/explain/batch` 路由函数与 `src/api/explainer_api.py` 文件之间创建 `contains` 关系。
+  - 为 `/api/v1/explain/feature_importance` 路由函数创建知识图谱实体（APIEndpoint），观察值为“特征重要性路由”。
+  - 为 `/api/v1/explain/feature_importance` 路由函数与 `src/api/explainer_api.py` 文件之间创建 `contains` 关系。- **src/api/main.py 中依赖注入函数的知识图谱实体和关系创建**：
+- **src/api/main.py 中 API 路由函数的知识图谱实体和关系创建**：
+- **src/compute/tasks.py 中函数的知识图谱实体和关系创建**：
+- 为 `src/compute/tasks.py` 文件创建了知识图谱实体，并将其标记为 `File` 类型，观察值为“Celery任务模块”。
+- 为 `sync_daily_data` 函数创建了知识图谱实体，并将其标记为 `Function` 类型，观察值为“同步每日数据任务”。
+- 为 `sync_daily_data` 函数与 `src/compute/tasks.py` 文件之间创建了 `contains` 关系。
+- 为 `sync_stock_data` 函数创建了知识图谱实体，并将其标记为 `Function` 类型，观察值为“同步单只股票数据任务”。
+- 为 `sync_stock_data` 函数与 `src/compute/tasks.py` 文件之间创建了 `contains` 关系。
+- 为 `calculate_daily_factors` 函数创建了知识图谱实体，并将其标记为 `Function` 类型，观察值为“计算每日因子任务”。
+- 为 `calculate_daily_factors` 函数与 `src/compute/tasks.py` 文件之间创建了 `contains` 关系。
+- 为 `monthly_factor_recalculation` 函数创建了知识图谱实体，并将其标记为 `Function` 类型，观察值为“每月全量因子重算任务”。
+- 为 `monthly_factor_recalculation` 函数与 `src/compute/tasks.py` 文件之间创建了 `contains` 关系。
+- 为 `weekly_quality_check` 函数创建了知识图谱实体，并将其标记为 `Function` 类型，观察值为“每周数据质量检查任务”。
+- 为 `weekly_quality_check` 函数与 `src/compute/tasks.py` 文件之间创建了 `contains` 关系.
+- **src/compute/indicators.py 中 TechnicalIndicators 类及其方法的知识图谱实体和关系创建**：
+  - 文件实体：`src/compute/indicators.py` (类型: `File`, 观察值: “技术指标计算模块”)
+  - 类实体：`TechnicalIndicators` (类型: `Class`, 观察值: “技术指标计算类”)
+  - 关系：`TechnicalIndicators` `contains` `src/compute/indicators.py`
+  - 方法实体：`TechnicalIndicators.sma` (类型: `Method`, 观察值: “简单移动平均线 (Simple Moving Average)”)
+  - 关系：`TechnicalIndicators.sma` `contains` `TechnicalIndicators`
+  - 方法实体：`TechnicalIndicators.ema` (类型: `Method`, 观察值: “指数移动平均线 (Exponential Moving Average)”)
+  - 关系：`TechnicalIndicators.ema` `contains` `TechnicalIndicators`
+  - 方法实体：`TechnicalIndicators.rsi` (类型: `Method`, 观察值: “相对强弱指数 (Relative Strength Index)”)
+  - 关系：`TechnicalIndicators.rsi` `contains` `TechnicalIndicators`
+  - 方法实体：`TechnicalIndicators.macd` (类型: `Method`, 观察值: “MACD指标 (Moving Average Convergence Divergence)”)
+  - 关系：`TechnicalIndicators.macd` `contains` `TechnicalIndicators`
+  - 方法实体：`TechnicalIndicators.bollinger_bands` (类型: `Method`, 观察值: “布林带 (Bollinger Bands)”)
+  - 关系：`TechnicalIndicators.bollinger_bands` `contains` `TechnicalIndicators`
+  - 方法实体：`TechnicalIndicators.stochastic` (类型: `Method`, 观察值: “随机指标 (Stochastic Oscillator)”)
+  - 关系：`TechnicalIndicators.stochastic` `contains` `TechnicalIndicators`
+  - 方法实体：`TechnicalIndicators.williams_r` (类型: `Method`, 观察值: “威廉指标 (Williams %R)”)
+  - 关系：`TechnicalIndicators.williams_r` `contains` `TechnicalIndicators`
+  - 方法实体：`TechnicalIndicators.momentum` (类型: `Method`, 观察值: “动量指标 (Momentum)”)
+  - 关系：`TechnicalIndicators.momentum` `contains` `TechnicalIndicators`
+```
+- 为 `src/compute/processing.py` 文件创建了知识图谱实体，并将其标记为 `File` 类型，观察值为“因子预处理模块”。
+- 为 `FactorProcessor` 类创建了知识图谱实体，并将其标记为 `Class` 类型，观察值为“因子预处理器”。
+- 为 `FactorProcessor` 类与 `src/compute/processing.py` 文件之间创建了 `contains` 关系。
+- 为 `FactorProcessor.__init__` 方法创建了知识图谱实体，并将其标记为 `Method` 类型，观察值为“初始化因子预处理器”。
+- 为 `FactorProcessor.__init__` 方法与 `FactorProcessor` 类之间创建了 `contains` 关系。
+- 为 `FactorProcessor.load_factor_data` 方法创建了知识图谱实体，并将其标记为 `Method` 类型，观察值为“加载因子数据”。
+- 为 `FactorProcessor.load_factor_data` 方法与 `FactorProcessor` 类之间创建了 `contains` 关系。
+- 为 `FactorProcessor.load_stock_basic_info` 方法创建了知识图谱实体，并将其标记为 `Method` 类型，观察值为“加载股票基础信息”。
+- 为 `FactorProcessor.load_stock_basic_info` 方法与 `FactorProcessor` 类之间创建了 `contains` 关系。
+- 为 `FactorProcessor.winsorize_factors` 方法创建了知识图谱实体，并将其标记为 `Method` 类型，观察值为“因子去极值处理”。
+- 为 `FactorProcessor.winsorize_factors` 方法与 `FactorProcessor` 类之间创建了 `contains` 关系.
+
+```
+- **src/compute/factor_engine.py 中 FactorEngine 类及其方法的知识图谱实体和关系创建**：
+- **src/compute/technical.py 中函数的知识图谱实体和关系创建**：
+- **src/ai/prediction.py 中 StockPredictor 类及其方法的知识图谱实体和关系创建**：
+- **src/ai/training_pipeline.py 中 ModelTrainingPipeline 类及其方法的知识图谱实体和关系创建**：
+  - 为 `src/ai/training_pipeline.py` 文件创建实体，类型为 `File`，观察值为“AI模型训练流水线文件”。
+  - 为 `ModelTrainingPipeline` 类创建实体，类型为 `Class`，观察值为“AI模型训练流水线”。
+  - 为 `ModelTrainingPipeline` 类与 `src/ai/training_pipeline.py` 文件之间创建 `contains` 关系。
+  - 为 `ModelTrainingPipeline.__init__` 方法创建实体，类型为 `Method`，观察值为“初始化训练流水线”。
+  - 为 `ModelTrainingPipeline.__init__` 方法与 `ModelTrainingPipeline` 类之间创建 `contains` 关系。
+  - 为 `ModelTrainingPipeline.prepare_training_data` 方法创建实体，类型为 `Method`，观察值为“准备训练数据”。
+  - 为 `ModelTrainingPipeline.prepare_training_data` 方法与 `ModelTrainingPipeline` 类之间创建 `contains` 关系。
+  - 为 `ModelTrainingPipeline._calculate_target_returns` 方法创建实体，类型为 `Method`，观察值为“计算目标收益率”。
+  - 为 `ModelTrainingPipeline._calculate_target_returns` 方法与 `ModelTrainingPipeline` 类之间创建 `contains` 关系。
+  - 为 `ModelTrainingPipeline._clean_training_data` 方法创建实体，类型为 `Method`，观察值为“清洗训练数据”。
+  - 为 `ModelTrainingPipeline._clean_training_data` 方法与 `ModelTrainingPipeline` 类之间创建 `contains` 关系。
+  - 为 `src/ai/prediction.py` 文件创建实体，类型为 `File`，观察值为“每日预测脚本文件”。
+  - 为 `StockPredictor` 类创建实体，类型为 `Class`，观察值为“股票预测器”。
+  - 为 `StockPredictor` 类与 `src/ai/prediction.py` 文件之间创建 `contains` 关系。
+  - 为 `StockPredictor.__init__` 方法创建实体，类型为 `Method`，观察值为“初始化预测器”。
+  - 为 `StockPredictor.__init__` 方法与 `StockPredictor` 类之间创建 `contains` 关系。
+  - 为 `StockPredictor.load_model` 方法创建实体，类型为 `Method`，观察值为“加载训练好的模型”。
+  - 为 `StockPredictor.load_model` 方法与 `StockPredictor` 类之间创建 `contains` 关系。
+  - 为 `StockPredictor.get_latest_factors` 方法创建实体，类型为 `Method`，观察值为“获取最新的因子数据”。
+  - 为 `StockPredictor.get_latest_factors` 方法与 `StockPredictor` 类之间创建 `contains` 关系。
+  - 为 `StockPredictor.prepare_prediction_data` 方法创建实体，类型为 `Method`，观察值为“准备预测数据”。
+  - 为 `StockPredictor.prepare_prediction_data` 方法与 `StockPredictor` 类之间创建 `contains` 关系。
+  - 创建实体: `src/compute/technical.py` (File, 观察值: "技术指标兼容模块")
+- 创建实体: `calculate_rsi` (Function, 观察值: "计算RSI指标（兼容函数）")
+- 创建关系: `calculate_rsi` contains `src/compute/technical.py`
+- 创建实体: `calculate_macd` (Function, 观察值: "计算MACD指标（兼容函数）")
+- 创建关系: `calculate_macd` contains `src/compute/technical.py`
+- 创建实体: `calculate_bollinger_bands` (Function, 观察值: "计算布林带指标（兼容函数）")
+- 创建关系: `calculate_bollinger_bands` contains `src/compute/technical.py`
+- 创建实体: `calculate_sma` (Function, 观察值: "计算简单移动平均线")
+- 创建关系: `calculate_sma` contains `src/compute/technical.py`
+- 创建实体: `calculate_ema` (Function, 观察值: "计算指数移动平均线")
+- 创建关系: `calculate_ema` contains `src/compute/technical.py`
+  - 为 `src/compute/factor_engine.py` 文件创建实体，类型为 `File`，观察值为“因子计算引擎文件”。
+  - 为 `FactorEngine` 类创建实体，类型为 `Class`，观察值为“因子计算引擎”。
+  - 为 `FactorEngine` 类与 `src/compute/factor_engine.py` 文件之间创建 `contains` 关系。
+  - 为 `FactorEngine.__init__` 方法创建实体，类型为 `Method`，观察值为“初始化因子引擎”。
+  - 为 `FactorEngine.__init__` 方法与 `FactorEngine` 类之间创建 `contains` 关系。
+  - 为 `FactorEngine.get_stock_data` 方法创建实体，类型为 `Method`，观察值为“获取股票数据”。
+  - 为 `FactorEngine.get_stock_data` 方法与 `FactorEngine` 类之间创建 `contains` 关系。
+  - 为 `FactorEngine.get_all_stocks` 方法创建实体，类型为 `Method`，观察值为“获取所有股票代码”。
+  - 为 `FactorEngine.get_all_stocks` 方法与 `FactorEngine` 类之间创建 `contains` 关系。
+  - 为 `FactorEngine.create_factor_tables` 方法创建实体，类型为 `Method`，观察值为“创建因子存储表”。
+  - 为 `FactorEngine.create_factor_tables` 方法与 `FactorEngine` 类之间创建 `contains` 关系。
+  - 为 `FactorEngine.calculate_stock_factors` 方法创建实体，类型为 `Method`，观察值为“计算单只股票的因子”。
+  - 为 `FactorEngine.calculate_stock_factors` 方法与 `FactorEngine` 类之间创建 `contains` 关系。
+  - 为 `sync_daily_data` 函数创建实体，类型为 `Function`，观察值为“同步每日数据任务”。
+  - 为 `sync_daily_data` 函数与 `src/compute/tasks.py` 文件之间创建 `contains` 关系。
+  - 为 `sync_stock_data` 函数创建实体，类型为 `Function`，观察值为“同步单只股票数据任务”。
+  - 为 `sync_stock_data` 函数与 `src/compute/tasks.py` 文件之间创建 `contains` 关系。
+  - 为 `calculate_daily_factors` 函数创建实体，类型为 `Function`，观察值为“计算每日因子任务”。
+  - 为 `calculate_daily_factors` 函数与 `src/compute/tasks.py` 文件之间创建 `contains` 关系。
+- **src/compute/quality.py 中函数的知识图谱实体和关系创建**：
+  - 创建实体: `src/compute/quality.py` (File, 观察值: "数据质量模块")
+  - 创建实体: `detect_outliers` (Function, 观察值: "检测异常值")
+  - 创建关系: `detect_outliers` contains `src/compute/quality.py`
+  - 创建实体: `fill_missing_values` (Function, 观察值: "填充缺失值")
+  - 创建关系: `fill_missing_values` contains `src/compute/quality.py`
+  - 创建实体: `validate_price_data` (Function, 观察值: "验证价格数据的合理性")
+  - 创建关系: `validate_price_data` contains `src/compute/quality.py`
+  - 创建实体: `clean_price_data` (Function, 观察值: "清洗数据")
+  - 创建关系: `clean_price_data` contains `src/compute/quality.py`
+  - 创建实体: `calculate_data_quality_score` (Function, 观察值: "计算数据质量分数")
+  - 创建关系: `calculate_data_quality_score` contains `src/compute/quality.py`
+   - **src/compute/processing.py 中 FactorProcessor 类及其方法的知识图谱实体和关系创建**：
+  - 为 `FactorProcessor` 类创建实体，类型为 `Class`，观察值为“因子预处理器”。
+  - 为 `FactorProcessor` 类与 `src/compute/processing.py` 文件之间创建 `contains` 关系。
+  - 为 `FactorProcessor.__init__` 方法创建实体，类型为 `Method`，观察值为“初始化因子预处理器”。
+  - 为 `FactorProcessor.__init__` 方法与 `FactorProcessor` 类之间创建 `contains` 关系。
+  - 为 `FactorProcessor.load_factor_data` 方法创建实体，类型为 `Method`，观察值为“加载因子数据”。
+  - 为 `FactorProcessor.load_factor_data` 方法与 `FactorProcessor` 类之间创建 `contains` 关系。
+  - 为 `FactorProcessor.load_stock_basic_info` 方法创建实体，类型为 `Method`，观察值为“加载股票基础信息”。
+  - 为 `FactorProcessor.load_stock_basic_info` 方法与 `FactorProcessor` 类之间创建 `contains` 关系。
+  - 为 `FactorProcessor.winsorize_factors` 方法创建实体，类型为 `Method`，观察值为“因子去极值处理”。
+  - 为 `FactorProcessor.winsorize_factors` 方法与 `FactorProcessor` 类之间创建 `contains` 关系。
+  - 为 `/health` 路由函数创建实体和与 `src/api/main.py` 的 `contains` 关系。
+  - 为 `/api/v1/stocks/basic` 路由函数创建实体和与 `src/api/main.py` 的 `contains` 关系。
+  - 为 `/api/v1/stocks/{ts_code}/daily` 路由函数创建实体和与 `src/api/main.py` 的 `contains` 关系。
+  - 为 `/api/v1/factors/{factor_name}/values` 路由函数创建实体和与 `src/api/main.py` 的 `contains` 关系。
+  - 为 `/api/v1/data/sync/basic` 路由函数创建实体和与 `src/api/main.py` 的 `contains` 关系。
+  - 为 `/api/v1/data/sync/daily/{ts_code}` 路由函数创建实体和与 `src/api/main.py` 的 `contains` 关系。
+- **src/api/main.py 中 Pydantic 模型、启动/关闭事件和根路径函数的知识图谱实体和关系创建**：
+  - 为 `StockBasicResponse` 模型创建实体和与 `src/api/main.py` 的 `contains` 关系。
+  - 为 `StockDailyResponse` 模型创建实体和与 `src/api/main.py` 的 `contains` 关系。
+  - 为 `FactorValueResponse` 模型创建实体和与 `src/api/main.py` 的 `contains` 关系。
+  - 为 `DataQualityResponse` 模型创建实体和与 `src/api/main.py` 的 `contains` 关系。
+  - 为 `StrategyPerformanceResponse` 模型创建实体和与 `src/api/main.py` 的 `contains` 关系。
+  - 为 `SystemHealthResponse` 模型创建实体和与 `src/api/main.py` 的 `contains` 关系。
+  - 为 `startup_event` 函数创建实体和与 `src/api/main.py` 的 `contains` 关系。
+  - 为 `shutdown_event` 函数创建实体和与 `src/api/main.py` 的 `contains` 关系。
+  - 为 `root` 函数创建实体和与 `src/api/main.py` 的 `contains` 关系。
+  - 为 `get_database` 函数创建了知识图谱实体，并添加了“获取数据库连接”的功能描述。
+  - 为 `get_tushare_syncer` 函数创建了知识图谱实体，并添加了“获取 Tushare 数据同步器实例”的功能描述。
+  - 为 `get_factor_engine` 函数创建了知识图谱实体，并添加了“获取因子计算引擎实例”的功能描述。
+  - 为 `get_quality_monitor` 函数创建了知识图谱实体，并添加了“获取数据质量监控器实例”的功能描述。
+  - 为 `get_feature_store` 函数创建了知识图谱实体，并添加了“获取特征存储实例”的功能描述。
+  - 为 `get_strategy_evaluator` 函数创建了知识图谱实体，并添加了“获取策略评估器实例”的功能描述。
+  - 为 `get_alert_engine` 函数创建了知识图谱实体，并添加了“获取告警引擎实例”的功能描述。
+  - 为 `src/api/main.py` 文件与上述所有 `get_*` 函数之间创建了 `contains` 关系。
+- **src/data/tushare_sync.py 中 TushareSynchronizer 类及其方法的知识图谱实体和关系创建**：
+  - 为 `TushareSynchronizer` 类创建了知识图谱实体，并添加了“Tushare数据同步器，负责从Tushare获取数据并同步到数据库”的功能描述。
+  - 为 `src/data/tushare_sync.py` 文件与 `TushareSynchronizer` 类之间创建了 `contains` 关系。
+  - 为 `TushareSynchronizer` 类的 `__init__` 方法创建了知识图谱实体，并添加了“初始化Tushare同步器，设置Tushare API接口和数据库引擎”的功能描述。
+  - 为 `TushareSynchronizer` 类与 `TushareSynchronizer.__init__` 方法之间创建了 `contains` 关系。
+  - 为 `TushareSynchronizer` 类的 `get_last_trade_date` 方法创建了知识图谱实体，并添加了“获取数据库中股票日线数据（stock_daily表）的最后一个交易日期”的功能描述。
+  - 为 `TushareSynchronizer` 类与 `TushareSynchronizer.get_last_trade_date` 方法之间创建了 `contains` 关系。
+  - 为 `TushareSynchronizer` 类的 `sync_stock_basic` 方法创建了知识图谱实体，并添加了“同步股票基本信息，从Tushare获取股票基本信息并存储到数据库的stock_basic表”的功能描述。
+  - 为 `TushareSynchronizer` 类与 `TushareSynchronizer.sync_stock_basic` 方法之间创建了 `contains` 关系。
+  - 为 `TushareSynchronizer` 类的 `sync_trade_calendar` 方法创建了知识图谱实体，并添加了“同步交易日历，从Tushare获取交易日历数据并存储到数据库的trade_calendar表”的功能描述。
+  - 为 `TushareSynchronizer` 类与 `TushareSynchronizer.sync_trade_calendar` 方法之间创建了 `contains` 关系。
+  - 为 `TushareSynchronizer` 类的 `update_daily_data` 方法创建了知识图谱实体，并添加了“更新日线数据，从Tushare获取股票日线数据并存储到数据库”的功能描述。
+  - 为 `TushareSynchronizer` 类与 `TushareSynchronizer.update_daily_data` 方法之间创建了 `contains` 关系。
+- **`src/api/main.py` 知识图谱实体创建**：
+  - 为 `src/api/main.py` 文件创建了知识图谱实体，并添加了功能描述的观察值，说明其为 FastAPI 应用的主入口，提供量化投研系统的API接口。
+  - 为 `FastAPI` 应用实例 `app` 创建了知识图谱实体，并添加了功能描述的观察值，说明其为 StockSchool 量化投研系统的 FastAPI 应用实例。
+  - 为 `StockBasicResponse` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为股票基础信息响应模型。
+  - 为 `StockDailyResponse` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为股票日线数据响应模型。
+  - 为 `FactorValueResponse` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为因子值响应模型。
+  - 为 `DataQualityResponse` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为数据质量响应模型。
+  - 为 `StrategyPerformanceResponse` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为策略表现响应模型。
+  - 为 `SystemHealthResponse` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为系统健康状态响应模型。
+  - 为 `get_database` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其用于获取数据库连接。
+  - 为 `get_tushare_syncer` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其用于获取 Tushare 同步器。
+  - 为 `get_factor_engine` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其用于获取因子引擎。
+  - 为 `get_quality_monitor` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其用于获取数据质量监控器。
+  - 为 `get_feature_store` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其用于获取特征商店。
+  - 为 `get_strategy_evaluator` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其用于获取策略评估器。
+  - 为 `get_alert_engine` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其用于获取告警引擎。
+  - 为 `startup_event` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其为应用启动事件处理函数。
+  - 为 `shutdown_event` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其为应用关闭事件处理函数。
+  - 为 `root` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其为 API 根路径处理函数。
+  - 为 `src/api/main.py` 文件与 `app` 变量之间创建了 `contains` 关系，以表明文件包含该应用实例。
+  - 为 `src/api/main.py` 文件与 `StockBasicResponse` 类之间创建了 `contains` 关系，以表明文件包含该类。
+  - 为 `src/api/main.py` 文件与 `StockDailyResponse` 类之间创建了 `contains` 关系，以表明文件包含该类。
+  - 为 `src/api/main.py` 文件与 `FactorValueResponse` 类之间创建了 `contains` 关系，以表明文件包含该类。
+  - 为 `src/api/main.py` 文件与 `DataQualityResponse` 类之间创建了 `contains` 关系，以表明文件包含该类。
+  - 为 `src/api/main.py` 文件与 `StrategyPerformanceResponse` 类之间创建了 `contains` 关系，以表明文件包含该类。
+  - 为 `src/api/main.py` 文件与 `SystemHealthResponse` 类之间创建了 `contains` 关系，以表明文件包含该类。
+  - 为 `src/api/main.py` 文件与 `get_database` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/main.py` 文件与 `get_tushare_syncer` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/main.py` 文件与 `get_factor_engine` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/main.py` 文件与 `get_quality_monitor` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/main.py` 文件与 `get_feature_store` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/main.py` 文件与 `get_strategy_evaluator` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/main.py` 文件与 `get_alert_engine` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/main.py` 文件与 `startup_event` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/main.py` 文件与 `shutdown_event` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/main.py` 文件与 `root` 函数之间创建了 `contains` 关系，以表明文件包含该函数.
+- 创建实体: `src/compute/factor_engine.py` (File, 观察值: "因子计算引擎模块")
+- 创建实体: `FactorEngine` (Class, 观察值: "因子计算引擎")
+- 创建关系: `FactorEngine` contains `src/compute/factor_engine.py`
+- 创建实体: `FactorEngine.__init__` (Method, 观察值: "初始化因子引擎")
+- 创建关系: `FactorEngine.__init__` contains `FactorEngine`
+- 创建实体: `FactorEngine.get_stock_data` (Method, 观察值: "获取股票数据")
+- 创建关系: `FactorEngine.get_stock_data` contains `FactorEngine`
+- 创建实体: `FactorEngine.get_all_stocks` (Method, 观察值: "获取所有股票代码")
+- 创建关系: `FactorEngine.get_all_stocks` contains `FactorEngine`
+- 创建实体: `FactorEngine.create_factor_tables` (Method, 观察值: "创建因子存储表")
+- 创建关系: `FactorEngine.create_factor_tables` contains `FactorEngine`
+- 创建实体: `FactorEngine.calculate_stock_factors` (Method, 观察值: "计算单只股票的因子")
+- 创建关系: `FactorEngine.calculate_stock_factors` contains `FactorEngine`
+- 为 `src/compute/factor_engine.py` 知识图谱实体创建：
+  - 为 `factor_engine.py` 文件创建实体，并添加功能描述。
+  - 为 `FactorEngine` 类创建实体，并添加功能描述。
+  - 为 `FactorEngine` 类的 `__init__` 方法创建实体，并添加功能描述。
+  - 为 `FactorEngine` 类的 `get_stock_data` 方法创建实体，并添加功能描述。
+  - 为 `FactorEngine` 类的 `get_all_stocks` 方法创建实体，并添加功能描述。
+  - 为 `FactorEngine` 类的 `create_factor_tables` 方法创建实体，并添加功能描述。
+  - 为 `FactorEngine` 类的 `calculate_stock_factors` 方法创建实体，并添加功能描述。
+- 为 `src/compute/indicators.py` 知识图谱实体创建：
+  - 为 `indicators.py` 文件创建实体，并添加功能描述。
+  - 为 `TechnicalIndicators` 类创建实体，并添加功能描述。
+  - 为 `TechnicalIndicators` 类的 `sma` 方法创建实体，并添加功能描述。
+  - 为 `TechnicalIndicators` 类的 `ema` 方法创建实体，并添加功能描述。
+  - 为 `TechnicalIndicators` 类的 `rsi` 方法创建实体，并添加功能描述。
+  - 为 `TechnicalIndicators` 类的 `macd` 方法创建实体，并添加功能描述。
+  - 为 `TechnicalIndicators` 类的 `bollinger_bands` 方法创建实体，并添加功能描述。
+  - 为 `TechnicalIndicators` 类的 `stochastic` 方法创建实体，并添加功能描述。
+  - 为 `TechnicalIndicators` 类的 `williams_r` 方法创建实体，并添加功能描述。
+  - 为 `TechnicalIndicators` 类的 `momentum` 方法创建实体，并添加功能描述。
+- 为 `src/compute/factor_engine.py` 知识图谱实体创建：
+  - 为 `src/compute/factor_engine.py` 文件创建知识图谱实体，并添加功能描述的观察值，说明其作为因子计算引擎，负责从数据库获取数据、计算因子并存储结果。
+  - 为 `FactorEngine` 类创建知识图谱实体，并添加功能描述的观察值，说明其作为因子计算引擎类，提供数据获取、因子计算和结果存储的功能。
+  - 为 `FactorEngine` 类的 `__init__` 方法创建知识图谱实体，并添加功能描述的观察值，说明其用于初始化因子引擎，包括数据库引擎、因子计算器和基本面因子计算器。
+  - 为 `FactorEngine` 类的 `get_stock_data` 方法创建知识图谱实体，并添加功能描述的观察值，说明其用于从数据库获取指定股票在指定日期范围内的数据。
+  - 为 `FactorEngine` 类的 `get_all_stocks` 方法创建知识图谱实体，并添加功能描述的观察值，说明其用于从数据库获取所有上市股票的代码列表。
+  - 为 `FactorEngine` 类的 `create_factor_tables` 方法创建知识图谱实体，并添加功能描述的观察值，说明其用于创建因子数据表，确保数据库结构与因子计算需求一致。
+  - 为 `FactorEngine` 类的 `calculate_stock_factors` 方法创建知识图谱实体，并添加功能描述的观察值，说明其用于计算指定股票在指定日期范围内的因子，并将结果存储到数据库中。
+  - 为 `FactorEngine` 类与 `__init__` 方法之间创建 `contains` 关系。
+  - 为 `FactorEngine` 类与 `get_stock_data` 方法之间创建 `contains` 关系。
+  - 为 `FactorEngine` 类与 `get_all_stocks` 方法之间创建 `contains` 关系。
+  - 为 `FactorEngine` 类与 `create_factor_tables` 方法之间创建 `contains` 关系。
+  - 为 `FactorEngine` 类与 `calculate_stock_factors` 方法之间创建 `contains` 关系。
+  - 为 `src/compute/factor_engine.py` 文件与 `FactorEngine` 类之间创建 `contains` 关系。
+  - 为 `FeatureImportanceRequest` 类创建实体，并添加功能描述。
+  - 为 `ExplainResponse` 类创建实体，并添加功能描述。
+  - 为 `BatchExplainResponse` 类创建实体，并添加功能描述。
+  - 为 `FeatureImportanceResponse` 类创建实体，并添加功能描述。
+  - 为 `load_model` 函数创建实体，并添加功能描述。
+  - 为 `explain_prediction` 异步函数创建实体，并添加功能描述。
+  - 为 `batch_explain` 异步函数创建实体，并添加功能描述。
+  - 为 `feature_importance` 异步函数创建实体，并添加功能描述。
+- 为 `src/api/main.py` 文件、`FastAPI` 应用实例 `app`、`StockBasicResponse`、`StockDailyResponse`、`FactorValueResponse`、`DataQualityResponse`、`StrategyPerformanceResponse`、`SystemHealthResponse` 类以及 `get_database`、`get_tushare_syncer`、`get_factor_engine`、`get_quality_monitor`、`get_feature_store`、`get_strategy_evaluator`、`get_alert_engine`、`startup_event`、`shutdown_event` 和 `root` 函数创建了知识图谱实体。
+  - 为 `FeatureImportanceRequest` 类创建实体，并添加功能描述。
+  - 为 `ExplainResponse` 类创建实体，并添加功能描述。
+  - 为 `BatchExplainResponse` 类创建实体，并添加功能描述。
+  - 为 `FeatureImportanceResponse` 类创建实体，并添加功能描述。
+  - 为 `load_model` 函数创建实体，并添加功能描述。
+  - 为 `explain_prediction` 异步函数创建实体，并添加功能描述。
+  - 为 `batch_explain` 异步函数创建实体，并添加功能描述。
+  - 为 `feature_importance` 异步函数创建实体，并添加功能描述。
 
 - **成果**：
   - 知识图谱包含7个类实体、22个方法实体、8个因子实体及完整关系网络

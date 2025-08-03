@@ -57,12 +57,125 @@ StockSchool是一个基于Python的量化投研系统，集成了数据获取、
 - **策略模块测试**: `src/tests/test_ai_model.py` 覆盖AI模型训练和预测功能，测试覆盖率64%
 - **全面测试**: 总计67个测试用例，确保系统各模块功能正确性
 
-### 7. 知识图谱系统
+### 知识图谱系统
 - **核心功能**: 代码知识图谱，用于可视化和分析代码结构、类与方法关系
 - **实体类型**: 包含类(Class)、方法(Method)和因子(Factor)等实体
 - **关系网络**: 支持contains(包含)、uses(使用)等关系类型
 - **数据质量**: 定期审查与整理，确保实体命名规范统一，关系网络准确反映代码结构
-- **最新改进**: 完成全面的数据质量审查与整理，统一实体类型，规范命名格式，修复关系网络
+- **最新改进**: 
+  - 完成全面的数据质量审查与整理，统一实体类型，规范命名格式
+  - 修复关系网络，准确反映代码结构
+- 为 `ModelTrainingPipeline` 类及其所有相关方法（`__init__`, `prepare_training_data`, `_calculate_target_returns`, `_clean_training_data`, `train_model`, `_get_default_model_params`, `_calculate_metrics`, `_get_feature_importance`, `save_model`, `load_model`, `run_training_pipeline`, `_select_best_model`）创建了规范的实体和关系，并添加了详细的观察值，确保了代码功能、特性和实现细节的全面记录。
+- 为 `StockPredictor` 类及其所有相关方法（包括 `__init__`、`load_model`、`get_latest_factors`、`prepare_prediction_data`、`make_predictions`、`save_predictions`、`get_stock_info`、`generate_prediction_report` 和 `run_daily_prediction`）以及 `main` 函数创建了规范的实体和关系，并添加了详细的功能描述观察值，以全面记录其功能、特性和实现细节。
+  - 清理了潜在的瞬时数据和冗余内容，提高了图谱的可用性和维护性
+- **`src/api/explainer_api.py` 知识图谱实体创建**：
+  - 为 `src/api/explainer_api.py` 文件创建了知识图谱实体，并添加了功能描述的观察值，说明其为模型解释器API服务。
+  - 为 `router` 变量创建了知识图谱实体，并添加了功能描述的观察值，说明其为模型解释器 API 的 FastAPI 路由。
+  - 为 `ExplainRequest` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为预测解释请求模型。
+  - 为 `BatchExplainRequest` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为批量预测解释请求模型。
+  - 为 `FeatureImportanceRequest` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为特征重要性请求模型。
+  - 为 `ExplainResponse` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为预测解释响应模型。
+  - 为 `BatchExplainResponse` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为批量预测解释响应模型。
+  - 为 `FeatureImportanceResponse` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为特征重要性响应模型。
+  - 为 `load_model` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其用于加载模型文件。
+  - 为 `explain_prediction` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其为单个预测解释 API 接口。
+  - 为 `batch_explain` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其为批量预测解释 API 接口。
+  - 为 `feature_importance` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其为特征重要性计算 API 接口。
+  - 为 `src/api/explainer_api.py` 文件与 `router` 变量之间创建了 `contains` 关系，以表明文件包含该路由实例。
+  - 为 `src/api/explainer_api.py` 文件与 `ExplainRequest` 类之间创建了 `contains` 关系，以表明文件包含该类。
+  - 为 `src/api/explainer_api.py` 文件与 `BatchExplainRequest` 类之间创建了 `contains` 关系，以表明文件包含该类。
+  - 为 `src/api/explainer_api.py` 文件与 `FeatureImportanceRequest` 类之间创建了 `contains` 关系，以表明文件包含该类。
+  - 为 `src/api/explainer_api.py` 文件与 `ExplainResponse` 类之间创建了 `contains` 关系，以表明文件包含该类。
+  - 为 `src/api/explainer_api.py` 文件与 `BatchExplainResponse` 类之间创建了 `contains` 关系，以表明文件包含该类。
+  - 为 `src/api/explainer_api.py` 文件与 `FeatureImportanceResponse` 类之间创建了 `contains` 关系，以表明文件包含该类。
+  - 为 `src/api/explainer_api.py` 文件与 `load_model` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/explainer_api.py` 文件与 `explain_prediction` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/explainer_api.py` 文件与 `batch_explain` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/explainer_api.py` 文件与 `feature_importance` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+- **`src/api/main.py` 知识图谱实体创建**：
+  - 为 `src/api/main.py` 文件创建了知识图谱实体，并添加了功能描述的观察值，说明其为 FastAPI 应用的主入口，提供量化投研系统的API接口。
+  - 为 `FastAPI` 应用实例 `app` 创建了知识图谱实体，并添加了功能描述的观察值，说明其为 StockSchool 量化投研系统的 FastAPI 应用实例。
+  - 为 `StockBasicResponse` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为股票基础信息响应模型。
+  - 为 `StockDailyResponse` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为股票日线数据响应模型。
+  - 为 `FactorValueResponse` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为因子值响应模型。
+  - 为 `DataQualityResponse` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为数据质量响应模型。
+  - 为 `StrategyPerformanceResponse` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为策略表现响应模型。
+  - 为 `SystemHealthResponse` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为系统健康状态响应模型。
+  - 为 `get_database` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其用于获取数据库连接。
+  - 为 `get_tushare_syncer` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其用于获取 Tushare 同步器。
+  - 为 `get_factor_engine` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其用于获取因子引擎。
+  - 为 `get_quality_monitor` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其用于获取数据质量监控器。
+  - 为 `get_feature_store` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其用于获取特征商店。
+  - 为 `get_strategy_evaluator` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其用于获取策略评估器。
+  - 为 `get_alert_engine` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其用于获取告警引擎。
+  - 为 `startup_event` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其为应用启动事件处理函数。
+  - 为 `shutdown_event` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其为应用关闭事件处理函数。
+  - 为 `root` 函数创建了知识图谱实体，并添加了功能描述的观察值，说明其为 API 根路径处理函数。
+  - 为 `src/api/main.py` 文件与 `app` 变量之间创建了 `contains` 关系，以表明文件包含该应用实例。
+  - 为 `src/api/main.py` 文件与 `StockBasicResponse` 类之间创建了 `contains` 关系，以表明文件包含该类。
+  - 为 `src/api/main.py` 文件与 `StockDailyResponse` 类之间创建了 `contains` 关系，以表明文件包含该类。
+  - 为 `src/api/main.py` 文件与 `FactorValueResponse` 类之间创建了 `contains` 关系，以表明文件包含该类。
+  - 为 `src/api/main.py` 文件与 `DataQualityResponse` 类之间创建了 `contains` 关系，以表明文件包含该类。
+  - 为 `src/api/main.py` 文件与 `StrategyPerformanceResponse` 类之间创建了 `contains` 关系，以表明文件包含该类。
+  - 为 `src/api/main.py` 文件与 `SystemHealthResponse` 类之间创建了 `contains` 关系，以表明文件包含该类。
+  - 为 `src/api/main.py` 文件与 `get_database` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/main.py` 文件与 `get_tushare_syncer` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/main.py` 文件与 `get_factor_engine` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/main.py` 文件与 `get_quality_monitor` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/main.py` 文件与 `get_feature_store` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/main.py` 文件与 `get_strategy_evaluator` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/main.py` 文件与 `get_alert_engine` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/main.py` 文件与 `startup_event` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/main.py` 文件与 `shutdown_event` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+  - 为 `src/api/main.py` 文件与 `root` 函数之间创建了 `contains` 关系，以表明文件包含该函数。
+- **`src/data/tushare_sync.py` 知识图谱实体创建**：
+  - 为 `src/data/tushare_sync.py` 文件创建了知识图谱实体，并添加了功能描述的观察值，说明其为Tushare数据同步模块，负责从Tushare获取数据并同步到数据库。
+  - 为 `TushareSynchronizer` 类创建了知识图谱实体，并添加了功能描述的观察值，说明其为Tushare数据同步器，负责从Tushare获取数据并同步到数据库。
+  - 为 `TushareSynchronizer` 类的 `__init__` 方法创建了知识图谱实体，并添加了功能描述的观察值，说明其用于初始化Tushare同步器，设置Tushare API接口和数据库引擎。
+  - 为 `TushareSynchronizer` 类的 `get_last_trade_date` 方法创建了知识图谱实体，并添加了功能描述的观察值，说明其用于获取数据库中股票日线数据（stock_daily表）的最后一个交易日期。
+  - 为 `TushareSynchronizer` 类的 `sync_stock_basic` 方法创建了知识图谱实体，并添加了功能描述的观察值，说明其用于同步股票基本信息，从Tushare获取股票基本信息并存储到数据库的stock_basic表。
+  - 为 `TushareSynchronizer` 类的 `sync_trade_calendar` 方法创建了知识图谱实体，并添加了功能描述的观察值，说明其用于同步交易日历，从Tushare获取交易日历数据并存储到数据库的trade_calendar表。
+  - 为 `TushareSynchronizer` 类的 `update_daily_data` 方法创建了知识图谱实体，并添加了功能描述的观察值，说明其用于更新日线数据，从Tushare获取股票日线数据并存储到数据库。
+  - 为 `src/data/tushare_sync.py` 文件与 `TushareSynchronizer` 类之间创建了 `contains` 关系。
+  - 为 `TushareSynchronizer` 类与 `TushareSynchronizer.__init__` 方法之间创建了 `contains` 关系。
+  - 为 `TushareSynchronizer` 类与 `TushareSynchronizer.get_last_trade_date` 方法之间创建了 `contains` 关系。
+  - 为 `TushareSynchronizer` 类与 `TushareSynchronizer.sync_stock_basic` 方法之间创建了 `contains` 关系。
+  - 为 `TushareSynchronizer` 类与 `TushareSynchronizer.sync_trade_calendar` 方法之间创建了 `contains` 关系。
+  - 为 `TushareSynchronizer` 类与 `TushareSynchronizer.update_daily_data` 方法之间创建了 `contains` 关系。
+- **`src/compute/factor_engine.py` 知识图谱实体创建**：
+  - 为 `src/compute/factor_engine.py` 文件创建知识图谱实体，并添加功能描述的观察值，说明其作为因子计算引擎，负责从数据库获取数据、计算因子并存储结果。
+  - 为 `FactorEngine` 类创建知识图谱实体，并添加功能描述的观察值，说明其作为因子计算引擎类，提供数据获取、因子计算和结果存储的功能。
+  - 为 `FactorEngine` 类的 `__init__` 方法创建知识图谱实体，并添加功能描述的观察值，说明其用于初始化因子引擎，包括数据库引擎、因子计算器和基本面因子计算器。
+  - 为 `FactorEngine` 类的 `get_stock_data` 方法创建知识图谱实体，并添加功能描述的观察值，说明其用于从数据库获取指定股票在指定日期范围内的数据。
+  - 为 `FactorEngine` 类的 `get_all_stocks` 方法创建知识图谱实体，并添加功能描述的观察值，说明其用于从数据库获取所有上市股票的代码列表。
+  - 为 `FactorEngine` 类的 `create_factor_tables` 方法创建知识图谱实体，并添加功能描述的观察值，说明其用于创建因子数据表，确保数据库结构与因子计算需求一致。
+  - 为 `FactorEngine` 类的 `calculate_stock_factors` 方法创建知识图谱实体，并添加功能描述的观察值，说明其用于计算指定股票在指定日期范围内的因子，并将结果存储到数据库中。
+  - 为 `FactorEngine` 类与 `__init__` 方法之间创建 `contains` 关系。
+  - 为 `FactorEngine` 类与 `get_stock_data` 方法之间创建 `contains` 关系。
+  - 为 `FactorEngine` 类与 `get_all_stocks` 方法之间创建 `contains` 关系。
+  - 为 `FactorEngine` 类与 `create_factor_tables` 方法之间创建 `contains` 关系。
+  - 为 `FactorEngine` 类与 `calculate_stock_factors` 方法之间创建 `contains` 关系。
+  - 为 `src/compute/factor_engine.py` 文件与 `FactorEngine` 类之间创建 `contains` 关系。
+- **`src/compute/indicators.py` 知识图谱实体创建**：
+  - 为 `src/compute/indicators.py` 文件创建知识图谱实体，并添加功能描述的观察值，说明其作为技术指标计算模块，提供常用的技术分析指标计算功能。
+  - 为 `TechnicalIndicators` 类创建知识图谱实体，并添加功能描述的观察值，说明其作为技术指标计算类，包含多种常用技术分析指标的计算方法。
+  - 为 `TechnicalIndicators` 类中的 `sma` 方法创建知识图谱实体，并添加功能描述的观察值，说明其用于计算简单移动平均线 (Simple Moving Average)。
+  - 为 `TechnicalIndicators` 类中的 `ema` 方法创建知识图谱实体，并添加功能描述的观察值，说明其用于计算指数移动平均线 (Exponential Moving Average)。
+  - 为 `TechnicalIndicators` 类中的 `rsi` 方法创建知识图谱实体，并添加功能描述的观察值，说明其用于计算相对强弱指数 (Relative Strength Index)。
+  - 为 `TechnicalIndicators` 类中的 `macd` 方法创建知识图谱实体，并添加功能描述的观察值，说明其用于计算MACD指标 (Moving Average Convergence Divergence)。
+  - 为 `TechnicalIndicators` 类中的 `bollinger_bands` 方法创建知识图谱实体，并添加功能描述的观察值，说明其用于计算布林带 (Bollinger Bands)。
+  - 为 `TechnicalIndicators` 类中的 `stochastic` 方法创建知识图谱实体，并添加功能描述的观察值，说明其用于计算随机指标 (Stochastic Oscillator)。
+  - 为 `TechnicalIndicators` 类中的 `williams_r` 方法创建知识图谱实体，并添加功能描述的观察值，说明其用于计算威廉指标 (Williams %R)。
+  - 为 `TechnicalIndicators` 类中的 `momentum` 方法创建知识图谱实体，并添加功能描述的观察值，说明其用于计算动量指标 (Momentum)。
+  - 为 `src/compute/indicators.py` 文件与 `TechnicalIndicators` 类之间创建 `contains` 关系。
+  - 为 `TechnicalIndicators` 类与 `sma` 方法之间创建 `contains` 关系。
+  - 为 `TechnicalIndicators` 类与 `ema` 方法之间创建 `contains` 关系。
+  - 为 `TechnicalIndicators` 类与 `rsi` 方法之间创建 `contains` 关系。
+  - 为 `TechnicalIndicators` 类与 `macd` 方法之间创建 `contains` 关系。
+  - 为 `TechnicalIndicators` 类与 `bollinger_bands` 方法之间创建 `contains` 关系。
+  - 为 `TechnicalIndicators` 类与 `stochastic` 方法之间创建 `contains` 关系。
+  - 为 `TechnicalIndicators` 类与 `williams_r` 方法之间创建 `contains` 关系。
+  - 为 `TechnicalIndicators` 类与 `momentum` 方法之间创建 `contains` 关系。
 
 ### 系统特性
 - **特征工程**: 完整的特征商店系统，支持特征定义、存储和检索
@@ -811,6 +924,34 @@ GET /api/monitoring/alerts
 5. 生产级的稳定性和性能
 
 详细开发记录请查看 <mcfile name="log.md" path="d:\Users\xuxuz\Desktop\StockSchool\log.md"></mcfile>。
+
+#### 知识图谱实体和关系创建
+- **src/compute/factor_engine.py 模块的知识图谱实体和关系创建**：
+  - 为 <mcfile name="factor_engine.py" path="src/compute/factor_engine.py"></mcfile> 文件创建了类型为 `File` 的知识图谱实体。
+  - 为 <mcsymbol name="FactorEngine" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="18" type="class"></mcsymbol> 类创建了类型为 `Class` 的知识图谱实体，并添加了“因子计算引擎，负责从数据库获取数据，计算因子，并存储结果”的功能描述。
+  - 在 <mcfile name="factor_engine.py" path="src/compute/factor_engine.py"></mcfile> 文件与 <mcsymbol name="FactorEngine" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="18" type="class"></mcsymbol> 类之间创建了 `contains` 关系。
+  - 为 <mcsymbol name="__init__" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="24" type="function"></mcsymbol> 方法创建了类型为 `Method` 的知识图谱实体，并添加了“初始化因子引擎，设置数据库连接和因子计算器”的功能描述。
+  - 在 <mcsymbol name="FactorEngine" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="18" type="class"></mcsymbol> 类与 <mcsymbol name="__init__" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="24" type="function"></mcsymbol> 方法之间创建了 `contains` 关系。
+  - 为 <mcsymbol name="get_stock_data" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="35" type="function"></mcsymbol> 方法创建了类型为 `Method` 的知识图谱实体，并添加了“从数据库获取指定股票在特定日期范围内的数据”的功能描述。
+  - 在 <mcsymbol name="FactorEngine" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="18" type="class"></mcsymbol> 类与 <mcsymbol name="get_stock_data" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="35" type="function"></mcsymbol> 方法之间创建了 `contains` 关系。
+  - 为 <mcsymbol name="get_all_stocks" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="55" type="function"></mcsymbol> 方法创建了类型为 `Method` 的知识图谱实体，并添加了“获取所有已上市股票的代码列表”的功能描述。
+  - 在 <mcsymbol name="FactorEngine" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="18" type="class"></mcsymbol> 类与 <mcsymbol name="get_all_stocks" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="55" type="function"></mcsymbol> 方法之间创建了 `contains` 关系。
+  - 为 <mcsymbol name="create_factor_tables" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="66" type="function"></mcsymbol> 方法创建了类型为 `Method` 的知识图谱实体，并添加了“在数据库中创建用于存储股票因子和技术因子的表”的功能描述。
+  - 在 <mcsymbol name="FactorEngine" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="18" type="class"></mcsymbol> 类与 <mcsymbol name="create_factor_tables" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="66" type="function"></mcsymbol> 方法之间创建了 `contains` 关系。
+  - 为 <mcsymbol name="calculate_stock_factors" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="120" type="function"></mcsymbol> 方法创建了类型为 `Method` 的知识图谱实体，并添加了“计算单只股票的技术因子和基本面因子”的功能描述。
+  - 在 <mcsymbol name="FactorEngine" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="18" type="class"></mcsymbol> 类与 <mcsymbol name="calculate_stock_factors" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="120" type="function"></mcsymbol> 方法之间创建了 `contains` 关系。
+  - 为 <mcsymbol name="calculate_all_factors" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="217" type="function"></mcsymbol> 方法创建了类型为 `Method` 的知识图谱实体，并添加了“计算所有股票的技术因子”的功能描述。
+  - 在 <mcsymbol name="FactorEngine" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="18" type="class"></mcsymbol> 类与 <mcsymbol name="calculate_all_factors" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="217" type="function"></mcsymbol> 方法之间创建了 `contains` 关系。
+  - 为 <mcsymbol name="_calculate_fundamental_factors" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="280" type="function"></mcsymbol> 方法创建了类型为 `Method` 的知识图谱实体，并添加了“计算基本面因子”的功能描述。
+  - 在 <mcsymbol name="FactorEngine" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="18" type="class"></mcsymbol> 类与 <mcsymbol name="_calculate_fundamental_factors" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="280" type="function"></mcsymbol> 方法之间创建了 `contains` 关系。
+  - 为 <mcsymbol name="_get_factor_category" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="400" type="function"></mcsymbol> 方法创建了类型为 `Method` 的知识图谱实体，并添加了“获取因子分类”的功能描述。
+  - 在 <mcsymbol name="FactorEngine" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="18" type="class"></mcsymbol> 类与 <mcsymbol name="_get_factor_category" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="400" type="function"></mcsymbol> 方法之间创建了 `contains` 关系。
+  - 为 <mcsymbol name="calculate_all_factors_with_fundamental" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="419" type="function"></mcsymbol> 方法创建了类型为 `Method` 的知识图谱实体，并添加了“计算所有因子（包括技术因子和基本面因子）”的功能描述。
+  - 在 <mcsymbol name="FactorEngine" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="18" type="class"></mcsymbol> 类与 <mcsymbol name="calculate_all_factors_with_fundamental" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="419" type="function"></mcsymbol> 方法之间创建了 `contains` 关系。
+  - 为 <mcsymbol name="get_factor_data" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="445" type="function"></mcsymbol> 方法创建了类型为 `Method` 的知识图谱实体，并添加了“获取因子数据”的功能描述。
+  - 在 <mcsymbol name="FactorEngine" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="18" type="class"></mcsymbol> 类与 <mcsymbol name="get_factor_data" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="445" type="function"></mcsymbol> 方法之间创建了 `contains` 关系。
+  - 为 <mcsymbol name="get_factor_statistics" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="480" type="function"></mcsymbol> 方法创建了类型为 `Method` 的知识图谱实体，并添加了“获取因子统计信息”的功能描述。
+  - 在 <mcsymbol name="FactorEngine" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="18" type="class"></mcsymbol> 类与 <mcsymbol name="get_factor_statistics" filename="factor_engine.py" path="src/compute/factor_engine.py" startline="480" type="function"></mcsymbol> 方法之间创建了 `contains` 关系。
 
 ### 硬编码参数配置化 (2025年07月28日)
 
