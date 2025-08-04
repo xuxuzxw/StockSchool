@@ -1,0 +1,38 @@
+api_params:
+  log_level: info
+  rate_limiting:
+    burst_size: 100
+    enabled: true
+    requests_per_minute: 1000
+  reload: false
+  workers: 4
+data_quality:
+  anomaly_alert:
+    alert_threshold: 0.01
+    enabled: true
+data_sync_params:
+  batch_size: 2000
+  max_workers: 8
+  retry_times: 5
+database_params:
+  connection_pool_size: 20
+  max_overflow: 30
+  pool_recycle: 3600
+  pool_timeout: 30
+feature_params:
+  max_cache_size: 102400
+  shap_batch_size: 1000
+  shap_parallel: true
+  use_cuda: true
+monitoring_params:
+  alerts:
+    cpu_threshold: 70.0
+    error_rate_threshold: 1.0
+    memory_threshold: 80.0
+    response_time_threshold: 500
+  collection_interval: 60
+sync_strategy:
+  dependency_management:
+    max_parallel_tasks: 10
+  incremental:
+    check_interval: 1800

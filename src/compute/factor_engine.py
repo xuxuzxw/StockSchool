@@ -19,19 +19,388 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.db import get_db_engine
 from utils.retry import idempotent_retry
 from utils.config_loader import config
-from compute.indicators import FactorCalculator, FundamentalFactorCalculator
+from compute.indicators import TechnicalIndicators
 
+
+class TechnicalFactorEngine:
+    """技术面因子计算引擎"""
+    
+    def __init__(self, engine):
+        self.engine = engine
+
+    def calculate_momentum_factors(self, data: pd.DataFrame) -> pd.DataFrame:
+        """计算动量因子"""
+        
+        # RSI
+        data['rsi_14'] = TechnicalIndicators.rsi(data['close'], window=14)
+        
+        # Williams %R
+        data['williams_r_14'] = TechnicalIndicators.williams_r(data['high'], data['low'], data['close'], window=14)
+        
+        # Momentum
+        data['momentum_5'] = TechnicalIndicators.momentum(data['close'], window=5)
+        data['momentum_10'] = TechnicalIndicators.momentum(data['close'], window=10)
+        data['momentum_20'] = TechnicalIndicators.momentum(data['close'], window=20)
+        
+        logger.info("动量因子计算完成")
+        return data
+
+    def calculate_trend_factors(self, data: pd.DataFrame) -> pd.DataFrame:
+        """计算趋势因子"""
+        
+        # SMA
+        data['sma_5'] = TechnicalIndicators.sma(data['close'], window=5)
+        data['sma_10'] = TechnicalIndicators.sma(data['close'], window=10)
+        data['sma_20'] = TechnicalIndicators.sma(data['close'], window=20)
+        data['sma_60'] = TechnicalIndicators.sma(data['close'], window=60)
+        
+        # EMA
+        data['ema_12'] = TechnicalIndicators.ema(data['close'], window=12)
+        data['ema_26'] = TechnicalIndicators.ema(data['close'], window=26)
+        
+        # MACD
+        macd_df = TechnicalIndicators.macd(data['close'])
+        data['macd'] = macd_df['MACD']
+        data['macd_signal'] = macd_df['Signal']
+        data['macd_histogram'] = macd_df['Histogram']
+        
+        # Price to SMA
+        data['price_to_sma20'] = data['close'] / data['sma_20']
+        data['price_to_sma60'] = data['close'] / data['sma_60']
+        
+        logger.info("趋势因子计算完成")
+        return data
+
+    def calculate_volatility_factors(self, data: pd.DataFrame) -> pd.DataFrame:
+        """计算波动率因子"""
+        
+        # Historical Volatility
+        data['volatility_5'] = data['close'].pct_change().rolling(window=5).std() * (252**0.5)
+        data['volatility_20'] = data['close'].pct_change().rolling(window=20).std() * (252**0.5)
+        data['volatility_60'] = data['close'].pct_change().rolling(window=60).std() * (252**0.5)
+        
+        # ATR
+        # Ensure there's high, low, close data available
+        if 'high' in data.columns and 'low' in data.columns and 'close' in data.columns:
+            data['atr_14'] = TechnicalIndicators.atr(data['high'], data['low'], data['close'], window=14)
+        
+        # Bollinger Bands
+        bb_df = TechnicalIndicators.bollinger_bands(data['close'])
+        data['bb_upper'] = bb_df['Upper']
+        data['bb_middle'] = bb_df['Middle']
+        data['bb_lower'] = bb_df['Lower']
+        data['bb_width'] = (data['bb_upper'] - data['bb_lower']) / data['bb_middle']
+        data['bb_position'] = (data['close'] - data['bb_lower']) / (data['bb_upper'] - data['bb_lower'])
+        
+        logger.info("波动率因子计算完成")
+        return data
+
+    def calculate_volume_factors(self, data: pd.DataFrame) -> pd.DataFrame:
+        """计算成交量因子"""
+        
+        # Volume SMA
+        data['volume_sma_5'] = TechnicalIndicators.sma(data['vol'], window=5)
+        data['volume_sma_20'] = TechnicalIndicators.sma(data['vol'], window=20)
+        
+        # Volume Ratio
+        data['volume_ratio_5'] = data['vol'] / data['volume_sma_5']
+        data['volume_ratio_20'] = data['vol'] / data['volume_sma_20']
+        
+        # VPT
+        if 'close' in data.columns and 'vol' in data.columns:
+            data['vpt'] = TechnicalIndicators.vpt(data['close'], data['vol'])
+        
+        # MFI
+        if 'high' in data.columns and 'low' in data.columns and 'close' in data.columns and 'vol' in data.columns:
+            data['mfi'] = TechnicalIndicators.mfi(data['high'], data['low'], data['close'], data['vol'])
+        
+        logger.info("成交量因子计算完成")
+        return data
+
+class FundamentalFactorEngine:
+    """基本面因子计算引擎"""
+
+    def __init__(self, engine):
+        self.engine = engine
+        # Assuming FundamentalIndicators will be imported
+        # self.indicators = FundamentalIndicators()
+
+    def calculate_valuation_factors(self, financial_data: pd.DataFrame, market_data: pd.DataFrame) -> pd.DataFrame:
+        """计算估值因子"""
+        # 合并财务数据和市场数据
+        merged_data = pd.merge(financial_data, market_data, on=['ts_code', 'trade_date'], how='left')
+
+        # 计算 PE (市盈率)
+        # TTM 净利润 / 总市值
+        if 'net_profit_ttm' in merged_data.columns and 'total_mv' in merged_data.columns:
+            merged_data['pe_ttm'] = merged_data.apply(
+                lambda row: row['total_mv'] / row['net_profit_ttm'] if row['net_profit_ttm'] > 0 else np.nan,
+                axis=1
+            )
+
+        # 计算 PB (市净率)
+        # 总市值 / 最新一期财报的净资产
+        if 'total_hldr_eqy_exc_min_int' in merged_data.columns and 'total_mv' in merged_data.columns:
+            merged_data['pb'] = merged_data.apply(
+                lambda row: row['total_mv'] / row['total_hldr_eqy_exc_min_int'] if row['total_hldr_eqy_exc_min_int'] > 0 else np.nan,
+                axis=1
+            )
+
+        # 计算 PS (市销率)
+        # TTM 营业收入 / 总市值
+        if 'revenue_ttm' in merged_data.columns and 'total_mv' in merged_data.columns:
+            merged_data['ps_ttm'] = merged_data.apply(
+                lambda row: row['total_mv'] / row['revenue_ttm'] if row['revenue_ttm'] > 0 else np.nan,
+                axis=1
+            )
+
+        return merged_data
+
+    def calculate_profitability_factors(self, financial_data: pd.DataFrame) -> pd.DataFrame:
+        """计算盈利能力因子"""
+        result = financial_data.copy()
+
+        # ROE - 净资产收益率
+        if 'net_profit' in result.columns and 'total_hldr_eqy_exc_min_int' in result.columns:
+            result['roe'] = result.apply(
+                lambda row: self.indicators.calculate_roe(
+                    row.get('net_profit'), 
+                    row.get('total_hldr_eqy_exc_min_int')
+                ), axis=1
+            )
+
+        # ROA - 总资产收益率
+        if 'net_profit' in result.columns and 'total_assets' in result.columns:
+            result['roa'] = result.apply(
+                lambda row: self.indicators.calculate_roa(
+                    row.get('net_profit'), 
+                    row.get('total_assets')
+                ), axis=1
+            )
+
+        # 毛利率
+        if 'revenue' in result.columns and 'oper_cost' in result.columns:
+            result['gross_margin'] = result.apply(
+                lambda row: self.indicators.calculate_gross_margin(
+                    row.get('revenue'), 
+                    row.get('oper_cost')
+                ), axis=1
+            )
+
+        # 净利率
+        if 'revenue' in result.columns and 'net_profit' in result.columns:
+            result['net_margin'] = result.apply(
+                lambda row: self.indicators.calculate_net_margin(
+                    row.get('net_profit'), 
+                    row.get('revenue')
+                ), axis=1
+            )
+
+        return result
+
+    def get_market_data_for_financial_dates(self, financial_data: pd.DataFrame) -> pd.DataFrame:
+        """获取财务报告日期对应的市场数据"""
+        all_market_data = []
+        for index, row in financial_data.iterrows():
+            ts_code = row['ts_code']
+            # 报告期作为近似交易日
+            trade_date = row['end_date'].strftime('%Y%m%d') 
+            query = text(f"""
+                SELECT ts_code, trade_date, total_mv FROM daily_basic 
+                WHERE ts_code = '{ts_code}' AND trade_date = '{trade_date}'
+            """)
+            try:
+                with self.engine.connect() as connection:
+                    market_data = pd.read_sql(query, connection)
+                    if not market_data.empty:
+                        all_market_data.append(market_data)
+            except Exception as e:
+                logger.error(f"获取市场数据失败: {e}")
+        
+        if not all_market_data:
+            return pd.DataFrame()
+            
+        return pd.concat(all_market_data, ignore_index=True)
+
+    def calculate_all_fundamental_factors(self, financial_data: pd.DataFrame) -> pd.DataFrame:
+        """计算所有基本面因子"""
+        logger.info(f"开始计算基本面因子，数据量: {len(financial_data)}")
+        
+        result = financial_data.copy()
+        
+        # 计算各类因子
+        result = self.calculate_profitability_factors(result)
+        result = self.calculate_growth_factors(result)
+        result = self.calculate_leverage_factors(result)
+        result = self.calculate_liquidity_factors(result)
+
+        # 获取市场数据并计算估值因子
+        market_data = self.get_market_data_for_financial_dates(result)
+        if not market_data.empty:
+            result = self.calculate_valuation_factors(result, market_data)
+        
+        logger.info(f"基本面因子计算完成，共生成 {len(result.columns) - len(financial_data.columns)} 个因子")
+        
+        return result
+
+    def calculate_growth_factors(self, financial_data: pd.DataFrame) -> pd.DataFrame:
+        """计算成长性因子"""
+        result = financial_data.copy()
+        if 'ts_code' not in result.columns or 'end_date' not in result.columns:
+            return result
+
+        # 按股票代码分组，计算同比增长率
+        for ts_code in result['ts_code'].unique():
+            stock_data = result[result['ts_code'] == ts_code].sort_values('end_date').copy()
+            stock_data['end_date'] = pd.to_datetime(stock_data['end_date'])
+
+            # 营收同比增长率
+            if 'revenue' in stock_data.columns:
+                stock_data['revenue_yoy'] = stock_data.apply(
+                    lambda row: self._calculate_yoy(
+                        stock_data, row, 'revenue'
+                    ), axis=1
+                )
+
+            # 净利润同比增长率
+            if 'net_profit' in stock_data.columns:
+                stock_data['net_profit_yoy'] = stock_data.apply(
+                    lambda row: self._calculate_yoy(
+                        stock_data, row, 'net_profit'
+                    ), axis=1
+                )
+            
+            # 更新结果
+            result.update(stock_data)
+
+        return result
+
+    def _calculate_yoy(self, df: pd.DataFrame, current_row: pd.Series, column: str):
+        current_date = current_row['end_date']
+        previous_year_date = current_date - pd.DateOffset(years=1)
+
+        # 寻找最接近的去年同期数据
+        previous_data = df[
+            (df['end_date'] >= previous_year_date - pd.DateOffset(days=45)) &
+            (df['end_date'] <= previous_year_date + pd.DateOffset(days=45))
+        ]
+
+        if not previous_data.empty:
+            prev_row = previous_data.iloc[0]
+            current_value = current_row.get(column)
+            previous_value = prev_row.get(column)
+            
+            if pd.notna(current_value) and pd.notna(previous_value) and previous_value != 0:
+                return (current_value - previous_value) / abs(previous_value)
+        
+        return np.nan
+
+    def calculate_leverage_factors(self, financial_data: pd.DataFrame) -> pd.DataFrame:
+        """计算杠杆因子"""
+        result = financial_data.copy()
+
+        # 资产负债率
+        if 'total_liab' in result.columns and 'total_hldr_eqy_exc_min_int' in result.columns:
+            result['debt_to_equity'] = result.apply(
+                lambda row: self.indicators.calculate_debt_to_equity(
+                    row.get('total_liab'), 
+                    row.get('total_hldr_eqy_exc_min_int')
+                ), axis=1
+            )
+        
+        return result
+
+    def calculate_liquidity_factors(self, financial_data: pd.DataFrame) -> pd.DataFrame:
+        """计算流动性因子"""
+        result = financial_data.copy()
+
+        # 流动比率
+        if 'total_cur_assets' in result.columns and 'total_cur_liab' in result.columns:
+            result['current_ratio'] = result.apply(
+                lambda row: self.indicators.calculate_current_ratio(
+                    row.get('total_cur_assets'), 
+                    row.get('total_cur_liab')
+                ), axis=1
+            )
+
+        # 速动比率
+        if 'total_cur_assets' in result.columns and 'inventories' in result.columns and 'total_cur_liab' in result.columns:
+            result['quick_ratio'] = result.apply(
+                lambda row: self.indicators.calculate_quick_ratio(
+                    row.get('total_cur_assets'),
+                    row.get('inventories'),
+                    row.get('total_cur_liab')
+                ), axis=1
+            )
+        
+        return result
+
+class SentimentFactorEngine:
+    """情绪面因子计算引擎"""
+    def __init__(self, engine):
+        self.engine = engine
 
 class FactorEngine:
-    """因子计算引擎"""
+    """因子计算引擎，负责调度各类因子的计算"""
     
     def __init__(self):
         """初始化因子引擎"""
         self.engine = get_db_engine()
-        self.calculator = FactorCalculator()
-        self.fundamental_calculator = FundamentalFactorCalculator()
+        self.technical_engine = TechnicalFactorEngine(self.engine)
+        self.fundamental_engine = FundamentalFactorEngine(self.engine)
+        self.sentiment_engine = SentimentFactorEngine(self.engine)
         logger.info("因子计算引擎初始化完成")
-    
+
+    def get_financial_data(self, ts_code: str, report_type: str = '1', period: Optional[str] = None) -> pd.DataFrame:
+        """获取单只股票的财务数据"""
+        query = text(f"""
+            SELECT * FROM financial_indicator
+            WHERE ts_code = :ts_code AND report_type = :report_type
+            {"AND end_date = :period" if period else ""}
+            ORDER BY end_date DESC
+        """)
+        params = {'ts_code': ts_code, 'report_type': report_type}
+        if period:
+            params['period'] = period
+
+        with self.engine.connect() as connection:
+            df = pd.read_sql(query, connection, params=params)
+        
+        df['end_date'] = pd.to_datetime(df['end_date'], format='%Y%m%d')
+        return df
+
+    def calculate_fundamental_factors_for_stock(self, ts_code: str):
+        """计算并存储单只股票的基本面因子"""
+        financial_data = self.get_financial_data(ts_code)
+        if financial_data.empty:
+            logger.warning(f"未找到 {ts_code} 的财务数据，跳过基本面因子计算")
+            return
+
+        # 计算所有基本面因子
+        fundamental_factors_df = self.fundamental_engine.calculate_all_fundamental_factors(financial_data)
+
+        # 存储因子
+        if not fundamental_factors_df.empty:
+            # 选择需要存储的列
+            columns_to_store = [
+                'ts_code', 'end_date', 'roe', 'roa', 'gross_margin', 'net_margin',
+                'revenue_yoy', 'net_profit_yoy', 'debt_to_equity', 'current_ratio', 
+                'quick_ratio', 'pe_ttm', 'pb', 'ps_ttm'
+            ]
+            
+            # 确保所有列都存在
+            existing_columns = [col for col in columns_to_store if col in fundamental_factors_df.columns]
+            storage_df = fundamental_factors_df[existing_columns].copy()
+            storage_df.rename(columns={'end_date': 'report_date'}, inplace=True)
+
+            # 存储到数据库
+            try:
+                storage_df.to_sql('stock_fundamental_factors', self.engine, if_exists='append', index=False)
+                logger.info(f"成功存储 {ts_code} 的 {len(storage_df)} 条基本面因子")
+            except Exception as e:
+                logger.error(f"存储 {ts_code} 的基本面因子失败: {e}")
+
+
     def get_stock_data(self, 
                       ts_code: str, 
                       start_date: Optional[str] = None, 
@@ -169,6 +538,41 @@ class FactorEngine:
         );
         
         CREATE INDEX IF NOT EXISTS idx_technical_factors_date 
+
+        -- 创建基本面因子汇总表
+        CREATE TABLE IF NOT EXISTS stock_fundamental_factors (
+            ts_code VARCHAR(20) NOT NULL,
+            report_date DATE NOT NULL,
+
+            -- 盈利能力
+            roe DOUBLE PRECISION,
+            roa DOUBLE PRECISION,
+            gross_margin DOUBLE PRECISION,
+            net_margin DOUBLE PRECISION,
+
+            -- 成长能力
+            revenue_yoy DOUBLE PRECISION,
+            net_profit_yoy DOUBLE PRECISION,
+
+            -- 杠杆和流动性
+            debt_to_equity DOUBLE PRECISION,
+            current_ratio DOUBLE PRECISION,
+            quick_ratio DOUBLE PRECISION,
+
+            -- 估值
+            pe_ttm DOUBLE PRECISION,
+            pb DOUBLE PRECISION,
+            ps_ttm DOUBLE PRECISION,
+
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+            PRIMARY KEY (ts_code, report_date)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_fundamental_factors_date 
+        ON stock_fundamental_factors(report_date);
+
         ON stock_technical_factors(trade_date);
         """
         
@@ -178,10 +582,85 @@ class FactorEngine:
             
         logger.info("因子存储表创建完成")
     
-    @idempotent_retry(max_retries=3)
-    def calculate_stock_factors(self, ts_code: str, 
-                               start_date: Optional[str] = None,
-                               end_date: Optional[str] = None) -> bool:
+    def run_calculation(self, stocks: Optional[List[str]] = None, factor_types: List[str] = ['technical', 'fundamental'], start_date: Optional[str] = None, end_date: Optional[str] = None):
+        """运行因子计算
+
+        Args:
+            stocks: 股票代码列表。如果为 None，则计算所有股票。
+            factor_types: 要计算的因子类型列表，可以是 'technical' 或 'fundamental'。
+            start_date: 技术面因子计算的开始日期。
+            end_date: 技术面因子计算的结束日期。
+        """
+        if stocks is None:
+            stocks = self.get_all_stocks()
+
+        logger.info(f"开始为 {len(stocks)} 只股票计算因子，类型: {factor_types}")
+
+        for ts_code in stocks:
+            logger.info(f"--- 开始处理股票: {ts_code} ---")
+            if 'technical' in factor_types:
+                try:
+                    self.calculate_technical_factors_for_stock(ts_code, start_date, end_date)
+                except Exception as e:
+                    logger.error(f"计算 {ts_code} 的技术面因子时出错: {e}")
+            
+            if 'fundamental' in factor_types:
+                try:
+                    self.calculate_fundamental_factors_for_stock(ts_code)
+                except Exception as e:
+                    logger.error(f"计算 {ts_code} 的基本面因子时出错: {e}")
+            logger.info(f"--- 完成处理股票: {ts_code} ---")
+
+        logger.info("所有因子计算任务完成")
+    
+    def calculate_technical_factors_for_stock(self, ts_code: str, 
+                                           start_date: Optional[str] = None,
+                                           end_date: Optional[str] = None) -> bool:
+        """计算单只股票的技术面因子"""
+        try:
+            # 获取股票数据
+            df = self.get_stock_data(ts_code, start_date, end_date)
+            
+            if df.empty:
+                logger.warning(f"股票 {ts_code} 无数据，跳过技术面因子计算")
+                return True
+
+            # 计算各类技术面因子
+            df = self.technical_engine.calculate_momentum_factors(df)
+            df = self.technical_engine.calculate_trend_factors(df)
+            df = self.technical_engine.calculate_volatility_factors(df)
+            df = self.technical_engine.calculate_volume_factors(df)
+
+            # 准备存储的数据
+            all_technical_columns = [
+                'ts_code', 'trade_date',
+                'momentum_5', 'momentum_10', 'momentum_20', 'rsi_14', 'williams_r_14',
+                'sma_5', 'sma_10', 'sma_20', 'sma_60', 'ema_12', 'ema_26',
+                'macd', 'macd_signal', 'macd_histogram', 'price_to_sma20', 'price_to_sma60',
+                'volatility_5', 'volatility_20', 'volatility_60', 'atr_14',
+                'bb_upper', 'bb_middle', 'bb_lower', 'bb_width', 'bb_position',
+                'volume_sma_5', 'volume_sma_20', 'volume_ratio_5', 'volume_ratio_20', 'vpt', 'mfi'
+            ]
+
+            # 为缺失的列添加 np.nan
+            for col in all_technical_columns:
+                if col not in df.columns:
+                    df[col] = np.nan
+            
+            # 仅保留需要的列，并按定义好的顺序排列
+            df_to_store = df[all_technical_columns].copy()
+            df_to_store.dropna(subset=[col for col in all_technical_columns if col not in ['ts_code', 'trade_date']], how='all', inplace=True)
+
+            if not df_to_store.empty:
+                with self.engine.connect() as conn:
+                    df_to_store.to_sql('stock_technical_factors', conn, if_exists='append', index=False)
+                    conn.commit()
+                logger.info(f"股票 {ts_code} 技术面因子存储完成")
+
+            return True
+        except Exception as e:
+            logger.error(f"计算股票 {ts_code} 技术面因子失败: {e}")
+            return False
         """计算单只股票的因子
         
         Args:

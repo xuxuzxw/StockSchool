@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>股票学校 - 监控仪表板</title>
+    <meta name="description" content="股票学校AI策略系统监控仪表板，提供实时股票分析、因子分析、策略回测等功能" />
+    <meta name="keywords" content="股票分析,AI策略,量化投资,因子分析,回测系统" />
+    
+    <!-- 预加载关键资源 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- 字体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Element Plus 图标 -->
+    <link rel="stylesheet" href="https://unpkg.com/@element-plus/icons-vue@latest/dist/index.css">
+    
+    <style>
+      /* 全局样式重置 */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      html, body {
+        height: 100%;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background-color: #f5f7fa;
+        color: #303133;
+        line-height: 1.6;
+      }
+      
+      #app {
+        height: 100%;
+        min-height: 100vh;
+      }
+      
+      /* 加载动画 */
+      .loading-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        transition: opacity 0.3s ease-out;
+      }
+      
+      .loading-logo {
+        width: 80px;
+        height: 80px;
+        margin-bottom: 24px;
+        background: white;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        font-weight: bold;
+        color: #667eea;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        animation: pulse 2s infinite;
+      }
+      
+      .loading-text {
+        color: white;
+        font-size: 18px;
+        font-weight: 500;
+        margin-bottom: 16px;
+      }
+      
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-top: 3px solid white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      
+      @keyframes pulse {
+        0%, 100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.05);
+        }
+      }
+      
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      
+      /* 隐藏加载动画 */
+      .loading-container.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      
+      /* 滚动条样式 */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+      }
+      
+      ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+        transition: background 0.3s;
+      }
+      
+      ::-webkit-scrollbar-thumb:hover {
+        background: #a1a1a1;
+      }
+      
+      /* 响应式设计 */
+      @media (max-width: 768px) {
+        .loading-logo {
+          width: 60px;
+          height: 60px;
+          font-size: 24px;
+        }
+        
+        .loading-text {
+          font-size: 16px;
+        }
+      }
+      
+      /* 打印样式 */
+      @media print {
+        .loading-container {
+          display: none;
+        }
+        
+        body {
+          background: white;
+        }
+      }
+      
+      /* 高对比度模式 */
+      @media (prefers-contrast: high) {
+        body {
+          background: white;
+          color: black;
+        }
+      }
+      
+      /* 减少动画模式 */
+      @media (prefers-reduced-motion: reduce) {
+        .loading-logo,
+        .loading-spinner {
+          animation: none;
+        }
+      }
+      
+      /* 暗色主题支持 */
+      @media (prefers-color-scheme: dark) {
+        body {
+          background-color: #1a1a1a;
+          color: #e4e7ed;
+        }
+        
+        ::-webkit-scrollbar-track {
+          background: #2a2a2a;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+          background: #4a4a4a;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+          background: #5a5a5a;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 应用容器 -->
+    <div id="app">
+      <!-- 加载动画 -->
+      <div id="loading" class="loading-container">
+        <div class="loading-logo">
+          📈
+        </div>
+        <div class="loading-text">股票学校</div>
+        <div class="loading-spinner"></div>
+      </div>
+    </div>
+    
+    <!-- 主脚本 -->
+    <script type="module" src="/src/main.ts"></script>
+    
+    <!-- 加载完成后隐藏加载动画 -->
+    <script>
+      // 监听页面加载完成
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          const loading = document.getElementById('loading');
+          if (loading) {
+            loading.classList.add('hidden');
+            // 动画结束后移除元素
+            setTimeout(function() {
+              loading.remove();
+            }, 300);
+          }
+        }, 500); // 延迟500ms以确保Vue应用已初始化
+      });
+      
+      // 错误处理
+      window.addEventListener('error', function(e) {
+        console.error('应用加载错误:', e.error);
+        const loading = document.getElementById('loading');
+        if (loading) {
+          const text = loading.querySelector('.loading-text');
+          if (text) {
+            text.textContent = '加载失败，请刷新页面';
+          }
+        }
+      });
+      
+      // 未处理的Promise拒绝
+      window.addEventListener('unhandledrejection', function(e) {
+        console.error('未处理的Promise拒绝:', e.reason);
+      });
+    </script>
+  </body>
+</html>

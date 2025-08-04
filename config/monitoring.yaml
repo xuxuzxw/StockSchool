@@ -1,0 +1,216 @@
+# StockSchool 监控系统配置文件
+
+# 系统监控配置
+system:
+  check_interval: 30  # 系统检查间隔（秒）
+  health_check_timeout: 10  # 健康检查超时时间（秒）
+  
+# 数据库监控配置
+database:
+  enabled: true
+  check_interval: 60
+  connection_timeout: 5
+  query_timeout: 10
+  max_connections_threshold: 80  # 连接数阈值（百分比）
+  slow_query_threshold: 1000  # 慢查询阈值（毫秒）
+  
+# Redis监控配置
+redis:
+  enabled: true
+  check_interval: 30
+  connection_timeout: 3
+  memory_threshold: 80  # 内存使用阈值（百分比）
+  
+# API监控配置
+api:
+  enabled: true
+  check_interval: 30
+  response_time_threshold: 2000  # 响应时间阈值（毫秒）
+  error_rate_threshold: 5  # 错误率阈值（百分比）
+  
+# Celery监控配置
+celery:
+  enabled: true
+  check_interval: 60
+  queue_length_threshold: 100  # 队列长度阈值
+  worker_timeout_threshold: 300  # 工作者超时阈值（秒）
+  
+# 告警配置
+alerting:
+  enabled: true
+  check_interval: 30
+  max_alerts_per_rule: 10  # 每个规则最大告警数
+  alert_retention_days: 30  # 告警保留天数
+  
+  # 默认告警规则
+  default_rules:
+    - name: "高CPU使用率"
+      metric: "system.cpu_usage"
+      operator: ">"
+      threshold: 80
+      severity: "warning"
+      duration: 300  # 持续时间（秒）
+      description: "系统CPU使用率超过80%"
+      
+    - name: "极高CPU使用率"
+      metric: "system.cpu_usage"
+      operator: ">"
+      threshold: 95
+      severity: "critical"
+      duration: 60
+      description: "系统CPU使用率超过95%"
+      
+    - name: "高内存使用率"
+      metric: "system.memory_usage"
+      operator: ">"
+      threshold: 85
+      severity: "warning"
+      duration: 300
+      description: "系统内存使用率超过85%"
+      
+    - name: "极高内存使用率"
+      metric: "system.memory_usage"
+      operator: ">"
+      threshold: 95
+      severity: "critical"
+      duration: 60
+      description: "系统内存使用率超过95%"
+      
+    - name: "高磁盘使用率"
+      metric: "system.disk_usage"
+      operator: ">"
+      threshold: 90
+      severity: "warning"
+      duration: 600
+      description: "系统磁盘使用率超过90%"
+      
+    - name: "数据库连接异常"
+      metric: "database.status"
+      operator: "!="
+      threshold: "healthy"
+      severity: "critical"
+      duration: 30
+      description: "数据库连接异常"
+      
+    - name: "Redis连接异常"
+      metric: "redis.status"
+      operator: "!="
+      threshold: "healthy"
+      severity: "critical"
+      duration: 30
+      description: "Redis连接异常"
+      
+    - name: "API响应时间过长"
+      metric: "api.avg_response_time"
+      operator: ">"
+      threshold: 2000
+      severity: "warning"
+      duration: 300
+      description: "API平均响应时间超过2秒"
+      
+    - name: "API错误率过高"
+      metric: "api.error_rate"
+      operator: ">"
+      threshold: 5
+      severity: "warning"
+      duration: 300
+      description: "API错误率超过5%"
+      
+# 性能监控配置
+performance:
+  enabled: true
+  metrics_retention_hours: 24  # 指标保留时间（小时）
+  aggregation_interval: 60  # 聚合间隔（秒）
+  
+# WebSocket配置
+websocket:
+  enabled: true
+  heartbeat_interval: 30  # 心跳间隔（秒）
+  connection_timeout: 60  # 连接超时时间（秒）
+  max_connections: 100  # 最大连接数
+  
+# 通知配置
+notifications:
+  enabled: true
+  
+  # 邮件通知
+  email:
+    enabled: false
+    smtp_server: "smtp.gmail.com"
+    smtp_port: 587
+    username: "your-email@gmail.com"
+    password: "your-app-password"
+    from_email: "your-email@gmail.com"
+    to_emails:
+      - "admin@example.com"
+    use_tls: true
+    
+  # Webhook通知
+  webhook:
+    enabled: false
+    url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+    timeout: 10
+    retry_count: 3
+    
+  # 钉钉通知
+  dingtalk:
+    enabled: false
+    webhook_url: "https://oapi.dingtalk.com/robot/send?access_token=YOUR_TOKEN"
+    secret: "YOUR_SECRET"
+    
+  # 通知限流配置
+  rate_limiting:
+    enabled: true
+    max_notifications_per_hour: 10  # 每小时最大通知数
+    
+# 阈值配置
+thresholds:
+  # 系统阈值
+  system:
+    cpu_warning: 80
+    cpu_critical: 95
+    memory_warning: 85
+    memory_critical: 95
+    disk_warning: 90
+    disk_critical: 95
+    
+  # 数据库阈值
+  database:
+    response_time_warning: 1000  # 毫秒
+    response_time_critical: 5000
+    connections_warning: 80  # 百分比
+    connections_critical: 95
+    
+  # Redis阈值
+  redis:
+    response_time_warning: 100  # 毫秒
+    response_time_critical: 1000
+    memory_warning: 80  # 百分比
+    memory_critical: 95
+    
+  # API阈值
+  api:
+    response_time_warning: 2000  # 毫秒
+    response_time_critical: 5000
+    error_rate_warning: 5  # 百分比
+    error_rate_critical: 10
+    
+# 日志配置
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/monitoring.log"
+  max_file_size: "10MB"
+  backup_count: 5
+  
+# 数据清理配置
+cleanup:
+  enabled: true
+  interval_hours: 24  # 清理间隔（小时）
+  
+  # 数据保留期限
+  retention:
+    performance_metrics: 7  # 天
+    alert_history: 30  # 天
+    notification_history: 30  # 天
+    health_check_history: 3  # 天

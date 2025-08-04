@@ -1,0 +1,18 @@
+api_params:
+  log_level: warning
+  port: 8001
+data_sync_params:
+  batch_size: 50
+  max_workers: 1
+  retry_times: 1
+database_params:
+  connection_pool_size: 3
+  max_overflow: 5
+feature_params:
+  cache_explanations: false
+  max_cache_size: 512
+  shap_batch_size: 50
+  use_cuda: false
+monitoring_params:
+  collection_interval: 10
+  metric_retention: 10

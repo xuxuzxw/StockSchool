@@ -58,3 +58,7 @@ akshare==1.10.3
 # 其他工具
 mmap2==0.1.0
 tqdm==4.65.0
+
+# 配置管理系统依赖
+watchdog==3.0.0
+packaging==23.1

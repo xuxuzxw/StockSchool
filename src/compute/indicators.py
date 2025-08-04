@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from typing import Union, Optional
 from loguru import logger
-from src.utils.config_loader import config
+from ..utils.config_loader import config
 
 
 class TechnicalIndicators:
@@ -195,6 +195,36 @@ class TechnicalIndicators:
         return williams_r
 
     @staticmethod
+    def atr(high: pd.Series, low: pd.Series, close: pd.Series, window: int = 14) -> pd.Series:
+        """Average True Range (ATR)"""
+        high_low = high - low
+        high_close = np.abs(high - close.shift())
+        low_close = np.abs(low - close.shift())
+        tr = np.max([high_low, high_close, low_close], axis=0)
+        return TechnicalIndicators.sma(tr, window)
+
+    @staticmethod
+    def vpt(close: pd.Series, volume: pd.Series) -> pd.Series:
+        """Volume Price Trend (VPT)"""
+        return (volume * close.pct_change()).cumsum()
+
+    @staticmethod
+    def mfi(high: pd.Series, low: pd.Series, close: pd.Series, volume: pd.Series, window: int = 14) -> pd.Series:
+        """Money Flow Index (MFI)"""
+        typical_price = (high + low + close) / 3
+        money_flow = typical_price * volume
+        
+        positive_flow = pd.Series(np.where(typical_price > typical_price.shift(1), money_flow, 0))
+        negative_flow = pd.Series(np.where(typical_price < typical_price.shift(1), money_flow, 0))
+        
+        positive_mf = positive_flow.rolling(window=window).sum()
+        negative_mf = negative_flow.rolling(window=window).sum()
+        
+        money_ratio = positive_mf / negative_mf
+        mfi = 100 - (100 / (1 + money_ratio))
+        return mfi
+
+    @staticmethod
     def momentum(data: Union[pd.Series, np.ndarray], window: int = None) -> pd.Series:
         """动量指标 (Momentum)
 
@@ -296,172 +326,8 @@ class TechnicalIndicators:
         return williams_r
 
 
-class FactorCalculator:
-    """因子计算器"""
-    
-    def __init__(self):
-        self.indicators = TechnicalIndicators()
-        
-    def calculate_momentum_factors(self, df: pd.DataFrame) -> pd.DataFrame:
-        """计算动量因子
-        
-        Args:
-            df: 包含OHLCV数据的DataFrame
-            
-        Returns:
-            包含动量因子的DataFrame
-        """
-        result = df.copy()
-        
-        # 价格动量
-        result['momentum_5'] = df['close'].pct_change(5)
-        result['momentum_10'] = df['close'].pct_change(10)
-        momentum_period = config.get('factor_params.momentum.period', 20)
-        result['momentum_20'] = df['close'].pct_change(momentum_period)
-        
-        # RSI
-        rsi_window = config.get('factor_params.rsi.window', 14)
-        result['rsi_14'] = self.indicators.rsi(df['close'], rsi_window)
-        
-        # 威廉指标
-        williams_window = config.get('factor_params.williams.window', 14)
-        result['williams_r_14'] = self.indicators.williams_r(
-            df['high'], df['low'], df['close'], williams_window
-        )
-        
-        return result
-    
-    def calculate_trend_factors(self, df: pd.DataFrame) -> pd.DataFrame:
-        """计算趋势因子
-        
-        Args:
-            df: 包含OHLCV数据的DataFrame
-            
-        Returns:
-            包含趋势因子的DataFrame
-        """
-        result = df.copy()
-        
-        # 移动平均线
-        result['sma_5'] = self.indicators.sma(df['close'], 5)
-        result['sma_10'] = self.indicators.sma(df['close'], 10)
-        result['sma_20'] = self.indicators.sma(df['close'], 20)
-        result['sma_60'] = self.indicators.sma(df['close'], 60)
-        
-        # EMA
-        result['ema_12'] = self.indicators.ema(df['close'], 12)
-        result['ema_26'] = self.indicators.ema(df['close'], 26)
-        
-        # MACD
-        macd_data = self.indicators.macd(df['close'])
-        result['macd'] = macd_data['MACD']
-        result['macd_signal'] = macd_data['Signal']
-        result['macd_histogram'] = macd_data['Histogram']
-        
-        # 价格相对于移动平均线的位置
-        result['price_to_sma20'] = df['close'] / result['sma_20'] - 1
-        result['price_to_sma60'] = df['close'] / result['sma_60'] - 1
-        
-        return result
-    
-    def calculate_volatility_factors(self, df: pd.DataFrame) -> pd.DataFrame:
-        """计算波动率因子
-        
-        Args:
-            df: 包含OHLCV数据的DataFrame
-            
-        Returns:
-            包含波动率因子的DataFrame
-        """
-        result = df.copy()
-        
-        # 历史波动率
-        returns = df['close'].pct_change()
-        trading_days = config.get('strategy_params.trading_days_per_year', 252)
-        vol_windows = [5, 20, 60]
-        result['volatility_5'] = returns.rolling(vol_windows[0]).std() * np.sqrt(trading_days)
-        result['volatility_20'] = returns.rolling(vol_windows[1]).std() * np.sqrt(trading_days)
-        result['volatility_60'] = returns.rolling(vol_windows[2]).std() * np.sqrt(trading_days)
-        
-        # ATR
-        atr_window = config.get('factor_params.atr.window', 14)
-        result['atr_14'] = self.indicators.atr(
-            df['high'], df['low'], df['close'], atr_window
-        )
-        
-        # 布林带
-        bb_data = self.indicators.bollinger_bands(df['close'])
-        result['bb_upper'] = bb_data['Upper']
-        result['bb_middle'] = bb_data['Middle']
-        result['bb_lower'] = bb_data['Lower']
-        result['bb_width'] = (bb_data['Upper'] - bb_data['Lower']) / bb_data['Middle']
-        result['bb_position'] = (df['close'] - bb_data['Lower']) / (bb_data['Upper'] - bb_data['Lower'])
-        
-        return result
-    
-    def calculate_volume_factors(self, df: pd.DataFrame) -> pd.DataFrame:
-        """计算成交量因子
-        
-        Args:
-            df: 包含OHLCV数据的DataFrame
-            
-        Returns:
-            包含成交量因子的DataFrame
-        """
-        result = df.copy()
-        
-        # 成交量移动平均
-        vol_sma_windows = config.get('factor_params.volume.sma_windows', [5, 20])
-        result['volume_sma_5'] = self.indicators.sma(df['vol'], vol_sma_windows[0])
-        result['volume_sma_20'] = self.indicators.sma(df['vol'], vol_sma_windows[1])
-        
-        # 相对成交量
-        result['volume_ratio_5'] = df['vol'] / result['volume_sma_5']
-        result['volume_ratio_20'] = df['vol'] / result['volume_sma_20']
-        
-        # 成交量价格趋势 (VPT)
-        price_change = df['close'].pct_change()
-        result['vpt'] = (price_change * df['vol']).cumsum()
-        
-        # 资金流量指标 (MFI)
-        typical_price = (df['high'] + df['low'] + df['close']) / 3
-        money_flow = typical_price * df['vol']
-        
-        positive_flow = money_flow.where(typical_price > typical_price.shift(1), 0)
-        negative_flow = money_flow.where(typical_price < typical_price.shift(1), 0)
-        
-        mfi_window = config.get('factor_params.mfi.window', 14)
-        positive_flow_sum = positive_flow.rolling(mfi_window).sum()
-        negative_flow_sum = negative_flow.rolling(mfi_window).sum()
-        
-        money_flow_ratio = positive_flow_sum / negative_flow_sum
-        hundred = 100  # 常数，不需要外部化
-        result['mfi'] = hundred - (hundred / (1 + money_flow_ratio))
-        
-        return result
-    
-    def calculate_all_factors(self, df: pd.DataFrame) -> pd.DataFrame:
-        """计算所有因子
-        
-        Args:
-            df: 包含OHLCV数据的DataFrame
-            
-        Returns:
-            包含所有因子的DataFrame
-        """
-        logger.info(f"开始计算技术因子，数据量: {len(df)}")
-        
-        result = df.copy()
-        
-        # 计算各类因子
-        result = self.calculate_momentum_factors(result)
-        result = self.calculate_trend_factors(result)
-        result = self.calculate_volatility_factors(result)
-        result = self.calculate_volume_factors(result)
-        
-        logger.info(f"技术因子计算完成，共生成 {len(result.columns) - len(df.columns)} 个因子")
-        
-        return result
+
+
 
 
 class FundamentalIndicators:
@@ -605,187 +471,8 @@ class FundamentalIndicators:
         return (current_assets - inventories) / current_liab
 
 
-class FundamentalFactorCalculator:
-    """基本面因子计算器"""
-    
-    def __init__(self):
-        self.indicators = FundamentalIndicators()
-        
-    def calculate_profitability_factors(self, financial_data: pd.DataFrame) -> pd.DataFrame:
-        """计算盈利能力因子
-        
-        Args:
-            financial_data: 财务数据DataFrame
-            
-        Returns:
-            包含盈利能力因子的DataFrame
-        """
-        result = financial_data.copy()
-        
-        # ROE - 净资产收益率
-        result['roe'] = result.apply(
-            lambda row: self.indicators.calculate_roe(
-                row.get('net_profit', np.nan), 
-                row.get('total_hldr_eqy_exc_min_int', np.nan)
-            ), axis=1
-        )
-        
-        # ROA - 总资产收益率
-        result['roa'] = result.apply(
-            lambda row: self.indicators.calculate_roa(
-                row.get('net_profit', np.nan), 
-                row.get('total_assets', np.nan)
-            ), axis=1
-        )
-        
-        # 毛利率
-        result['gross_margin'] = result.apply(
-            lambda row: self.indicators.calculate_gross_margin(
-                row.get('revenue', np.nan), 
-                row.get('oper_cost', np.nan)
-            ), axis=1
-        )
-        
-        # 净利率
-        result['net_margin'] = result.apply(
-            lambda row: self.indicators.calculate_net_margin(
-                row.get('net_profit', np.nan), 
-                row.get('revenue', np.nan)
-            ), axis=1
-        )
-        
-        return result
-    
-    def calculate_growth_factors(self, financial_data: pd.DataFrame) -> pd.DataFrame:
-        """计算成长性因子
-        
-        Args:
-            financial_data: 财务数据DataFrame（需要包含同比数据）
-            
-        Returns:
-            包含成长性因子的DataFrame
-        """
-        result = financial_data.copy()
-        
-        # 按股票代码分组，计算同比增长率
-        for ts_code in result['ts_code'].unique():
-            stock_data = result[result['ts_code'] == ts_code].sort_values('end_date')
-            
-            # 营收同比增长率
-            revenue_yoy = []
-            net_profit_yoy = []
-            
-            for i, row in stock_data.iterrows():
-                # 查找去年同期数据
-                current_date = pd.to_datetime(row['end_date'])
-                previous_year_date = current_date - pd.DateOffset(years=1)
-                
-                # 寻找最接近的去年同期数据
-                previous_data = stock_data[
-                    (pd.to_datetime(stock_data['end_date']) >= previous_year_date - pd.DateOffset(days=45)) &
-                    (pd.to_datetime(stock_data['end_date']) <= previous_year_date + pd.DateOffset(days=45))
-                ]
-                
-                if not previous_data.empty:
-                    prev_row = previous_data.iloc[0]
-                    
-                    # 计算营收同比增长率
-                    revenue_growth = self.indicators.calculate_revenue_yoy(
-                        row.get('revenue', np.nan),
-                        prev_row.get('revenue', np.nan)
-                    )
-                    revenue_yoy.append(revenue_growth)
-                    
-                    # 计算净利润同比增长率
-                    profit_growth = self.indicators.calculate_net_profit_yoy(
-                        row.get('net_profit', np.nan),
-                        prev_row.get('net_profit', np.nan)
-                    )
-                    net_profit_yoy.append(profit_growth)
-                else:
-                    revenue_yoy.append(np.nan)
-                    net_profit_yoy.append(np.nan)
-            
-            # 更新结果
-            stock_indices = result[result['ts_code'] == ts_code].index
-            result.loc[stock_indices, 'revenue_yoy'] = revenue_yoy
-            result.loc[stock_indices, 'net_profit_yoy'] = net_profit_yoy
-        
-        return result
-    
-    def calculate_leverage_factors(self, financial_data: pd.DataFrame) -> pd.DataFrame:
-        """计算杠杆因子
-        
-        Args:
-            financial_data: 财务数据DataFrame
-            
-        Returns:
-            包含杠杆因子的DataFrame
-        """
-        result = financial_data.copy()
-        
-        # 资产负债率
-        result['debt_to_equity'] = result.apply(
-            lambda row: self.indicators.calculate_debt_to_equity(
-                row.get('total_liab', np.nan), 
-                row.get('total_hldr_eqy_exc_min_int', np.nan)
-            ), axis=1
-        )
-        
-        return result
-    
-    def calculate_liquidity_factors(self, financial_data: pd.DataFrame) -> pd.DataFrame:
-        """计算流动性因子
-        
-        Args:
-            financial_data: 财务数据DataFrame
-            
-        Returns:
-            包含流动性因子的DataFrame
-        """
-        result = financial_data.copy()
-        
-        # 流动比率
-        result['current_ratio'] = result.apply(
-            lambda row: self.indicators.calculate_current_ratio(
-                row.get('total_cur_assets', np.nan), 
-                row.get('total_cur_liab', np.nan)
-            ), axis=1
-        )
-        
-        # 速动比率
-        result['quick_ratio'] = result.apply(
-            lambda row: self.indicators.calculate_quick_ratio(
-                row.get('total_cur_assets', np.nan),
-                row.get('inventories', np.nan),
-                row.get('total_cur_liab', np.nan)
-            ), axis=1
-        )
-        
-        return result
-    
-    def calculate_all_fundamental_factors(self, financial_data: pd.DataFrame) -> pd.DataFrame:
-        """计算所有基本面因子
-        
-        Args:
-            financial_data: 财务数据DataFrame
-            
-        Returns:
-            包含所有基本面因子的DataFrame
-        """
-        logger.info(f"开始计算基本面因子，数据量: {len(financial_data)}")
-        
-        result = financial_data.copy()
-        
-        # 计算各类因子
-        result = self.calculate_profitability_factors(result)
-        result = self.calculate_growth_factors(result)
-        result = self.calculate_leverage_factors(result)
-        result = self.calculate_liquidity_factors(result)
-        
-        logger.info(f"基本面因子计算完成，共生成 {len(result.columns) - len(financial_data.columns)} 个因子")
-        
-        return result
+
+
 
 
 if __name__ == "__main__":

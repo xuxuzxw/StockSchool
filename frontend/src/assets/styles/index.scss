@@ -1,0 +1,263 @@
+// 导入变量和混合器
+@import './variables.scss';
+@import './mixins.scss';
+@import './global.scss';
+
+// Element Plus 主题定制
+:root {
+  --el-color-primary: #{$primary-color};
+  --el-color-success: #{$success-color};
+  --el-color-warning: #{$warning-color};
+  --el-color-danger: #{$danger-color};
+  --el-color-info: #{$info-color};
+  
+  --el-border-radius-base: #{$border-radius};
+  --el-border-radius-small: #{$border-radius-small};
+  --el-border-radius-round: #{$border-radius-round};
+  
+  --el-box-shadow-base: #{$box-shadow};
+  --el-box-shadow-light: #{$box-shadow-light};
+  --el-box-shadow-dark: #{$box-shadow-dark};
+}
+
+// 应用特定样式
+.app-container {
+  min-height: 100vh;
+  background-color: $background-color;
+}
+
+// 卡片样式增强
+.el-card {
+  border-radius: $border-radius;
+  box-shadow: $box-shadow;
+  transition: $transition-base;
+  
+  &:hover {
+    box-shadow: $box-shadow-hover;
+  }
+  
+  .el-card__header {
+    border-bottom: 1px solid $border-color;
+    padding: $spacing-md;
+    
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      
+      h3 {
+        margin: 0;
+        font-size: $font-size-lg;
+        font-weight: 600;
+        color: $text-color-primary;
+      }
+    }
+  }
+  
+  .el-card__body {
+    padding: $spacing-md;
+  }
+}
+
+// 表格样式增强
+.el-table {
+  border-radius: $border-radius;
+  overflow: hidden;
+  
+  .el-table__header {
+    th {
+      background-color: $background-color-light;
+      color: $text-color-primary;
+      font-weight: 600;
+    }
+  }
+  
+  .el-table__row {
+    &:hover {
+      background-color: $background-color-light;
+    }
+  }
+}
+
+// 按钮样式增强
+.el-button {
+  border-radius: $border-radius;
+  transition: $transition-base;
+  
+  &.el-button--primary {
+    background: linear-gradient(135deg, $primary-color, lighten($primary-color, 10%));
+    border-color: $primary-color;
+    
+    &:hover {
+      background: linear-gradient(135deg, darken($primary-color, 5%), $primary-color);
+    }
+  }
+}
+
+// 输入框样式增强
+.el-input {
+  .el-input__inner {
+    border-radius: $border-radius;
+    transition: $transition-base;
+    
+    &:focus {
+      border-color: $primary-color;
+      box-shadow: 0 0 0 2px rgba($primary-color, 0.2);
+    }
+  }
+}
+
+// 选择器样式增强
+.el-select {
+  .el-input__inner {
+    border-radius: $border-radius;
+  }
+}
+
+// 日期选择器样式
+.el-date-editor {
+  .el-input__inner {
+    border-radius: $border-radius;
+  }
+}
+
+// 统计数字样式
+.el-statistic {
+  .el-statistic__head {
+    color: $text-color-secondary;
+    font-size: $font-size-sm;
+    margin-bottom: $spacing-xs;
+  }
+  
+  .el-statistic__content {
+    color: $text-color-primary;
+    font-weight: 600;
+    font-size: $font-size-xl;
+  }
+}
+
+// 标签样式增强
+.el-tag {
+  border-radius: $border-radius-small;
+  
+  &.el-tag--success {
+    background-color: rgba($success-color, 0.1);
+    border-color: rgba($success-color, 0.2);
+    color: $success-color;
+  }
+  
+  &.el-tag--warning {
+    background-color: rgba($warning-color, 0.1);
+    border-color: rgba($warning-color, 0.2);
+    color: $warning-color;
+  }
+  
+  &.el-tag--danger {
+    background-color: rgba($danger-color, 0.1);
+    border-color: rgba($danger-color, 0.2);
+    color: $danger-color;
+  }
+}
+
+// 进度条样式
+.el-progress {
+  .el-progress-bar__outer {
+    border-radius: $border-radius-round;
+  }
+  
+  .el-progress-bar__inner {
+    border-radius: $border-radius-round;
+  }
+}
+
+// 对话框样式
+.el-dialog {
+  border-radius: $border-radius;
+  
+  .el-dialog__header {
+    border-bottom: 1px solid $border-color;
+    padding: $spacing-md;
+  }
+  
+  .el-dialog__body {
+    padding: $spacing-md;
+  }
+}
+
+// 抽屉样式
+.el-drawer {
+  .el-drawer__header {
+    border-bottom: 1px solid $border-color;
+    padding: $spacing-md;
+  }
+  
+  .el-drawer__body {
+    padding: $spacing-md;
+  }
+}
+
+// 面包屑样式
+.el-breadcrumb {
+  .el-breadcrumb__item {
+    .el-breadcrumb__inner {
+      color: $text-color-secondary;
+      
+      &:hover {
+        color: $primary-color;
+      }
+    }
+    
+    &:last-child {
+      .el-breadcrumb__inner {
+        color: $text-color-primary;
+        font-weight: 500;
+      }
+    }
+  }
+}
+
+// 菜单样式
+.el-menu {
+  border-right: none;
+  
+  .el-menu-item {
+    border-radius: $border-radius;
+    margin: $spacing-xs;
+    
+    &:hover {
+      background-color: rgba($primary-color, 0.1);
+    }
+    
+    &.is-active {
+      background-color: rgba($primary-color, 0.15);
+      color: $primary-color;
+    }
+  }
+}
+
+// 响应式工具类
+@include respond-to(mobile) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+  
+  .el-card {
+    margin-bottom: $spacing-md;
+  }
+  
+  .el-table {
+    font-size: $font-size-sm;
+  }
+}
+
+@include respond-to(tablet) {
+  .hide-on-tablet {
+    display: none !important;
+  }
+}
+
+@include respond-to(desktop) {
+  .hide-on-desktop {
+    display: none !important;
+  }
+}

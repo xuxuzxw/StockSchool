@@ -448,7 +448,7 @@ def detect_abnormal_data(table_name):
 
 def get_max_date(table_name):
     """获取表中最新数据日期"""
-    with get_db_connection() as conn:
+    with get_db_manager().get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(f"SELECT MAX(trade_date) FROM {table_name}")
         result = cursor.fetchone()[0]
@@ -457,7 +457,7 @@ def get_max_date(table_name):
 
 def get_record_count(table_name):
     """获取表记录数"""
-    with get_db_connection() as conn:
+    with get_db_manager().get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
         return cursor.fetchone()[0]
@@ -478,7 +478,7 @@ def calculate_standard_deviation(table_name):
 def has_future_records(table_name):
     """检查是否存在未来日期记录"""
     today = datetime.now().strftime('%Y%m%d')
-    with get_db_connection() as conn:
+    with get_db_manager().get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(f"SELECT COUNT(*) FROM {table_name} WHERE trade_date > %s", (today,))
         return cursor.fetchone()[0] > 0

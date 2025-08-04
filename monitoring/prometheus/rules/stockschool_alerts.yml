@@ -1,0 +1,158 @@
+# StockSchool 告警规则
+groups:
+  - name: stockschool.rules
+    rules:
+      # 服务可用性告警
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "服务 {{ $labels.job }} 不可用"
+          description: "服务 {{ $labels.job }} 在实例 {{ $labels.instance }} 上已经停止运行超过1分钟"
+
+      # API响应时间告警
+      - alert: HighAPILatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="stockschool-api"}[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API响应时间过高"
+          description: "API 95%分位响应时间超过2秒，当前值: {{ $value }}秒"
+
+      # API错误率告警
+      - alert: HighAPIErrorRate
+        expr: rate(http_requests_total{job="stockschool-api",status=~"5.."}[5m]) / rate(http_requests_total{job="stockschool-api"}[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API错误率过高"
+          description: "API 5xx错误率超过5%，当前值: {{ $value | humanizePercentage }}"
+
+      # 数据库连接告警
+      - alert: PostgreSQLDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL数据库不可用"
+          description: "PostgreSQL数据库连接失败超过1分钟"
+
+      # 数据库连接数告警
+      - alert: PostgreSQLTooManyConnections
+        expr: sum(pg_stat_activity_count) by (instance) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL连接数过多"
+          description: "PostgreSQL连接数超过80，当前值: {{ $value }}"
+
+      # 数据库慢查询告警
+      - alert: PostgreSQLSlowQueries
+        expr: rate(pg_stat_statements_mean_time_seconds[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL存在慢查询"
+          description: "平均查询时间超过1秒，当前值: {{ $value }}秒"
+
+      # Redis内存使用告警
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis内存使用率过高"
+          description: "Redis内存使用率超过80%，当前值: {{ $value | humanizePercentage }}"
+
+      # Redis连接数告警
+      - alert: RedisTooManyConnections
+        expr: redis_connected_clients > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis连接数过多"
+          description: "Redis连接数超过100，当前值: {{ $value }}"
+
+      # 系统CPU使用率告警
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "系统CPU使用率过高"
+          description: "CPU使用率超过80%，当前值: {{ $value }}%"
+
+      # 系统内存使用率告警
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "系统内存使用率过高"
+          description: "内存使用率超过85%，当前值: {{ $value }}%"
+
+      # 磁盘空间告警
+      - alert: DiskSpaceLow
+        expr: (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "磁盘空间不足"
+          description: "磁盘 {{ $labels.mountpoint }} 使用率超过85%，当前值: {{ $value }}%"
+
+      # 数据同步失败告警
+      - alert: DataSyncFailure
+        expr: increase(stockschool_sync_failures_total[1h]) > 3
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "数据同步失败"
+          description: "过去1小时内数据同步失败次数超过3次，当前值: {{ $value }}"
+
+      # 数据质量告警
+      - alert: DataQualityIssue
+        expr: stockschool_data_quality_score < 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "数据质量问题"
+          description: "数据质量评分低于0.8，当前值: {{ $value }}"
+
+      # 因子计算延迟告警
+      - alert: FactorCalculationDelay
+        expr: time() - stockschool_last_factor_calculation_timestamp > 3600
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "因子计算延迟"
+          description: "因子计算延迟超过1小时，延迟时间: {{ $value }}秒"
+
+  - name: stockschool.business.rules
+    rules:
+      # 业务指标记录规则
+      - record: stockschool:api_request_rate
+        expr: rate(http_requests_total{job="stockschool-api"}[5m])
+
+      - record: stockschool:api_error_rate
+        expr: rate(http_requests_total{job="stockschool-api",status=~"5.."}[5m]) / rate(http_requests_total{job="stockschool-api"}[5m])
+
+      - record: stockschool:database_query_rate
+        expr: rate(pg_stat_statements_calls[5m])
+
+      - record: stockschool:sync_success_rate
+        expr: rate(stockschool_sync_success_total[5m]) / (rate(stockschool_sync_success_total[5m]) + rate(stockschool_sync_failures_total[5m]))

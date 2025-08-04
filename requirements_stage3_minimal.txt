@@ -1,0 +1,177 @@
+# AI策略系统第三阶段核心依赖
+
+# 核心框架
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+
+# 数据库
+sqlalchemy>=2.0.23
+psycopg2-binary>=2.9.9
+redis>=5.0.1
+
+# 异步支持
+aiofiles>=23.2.1
+aioredis>=2.0.1
+
+# 数据处理
+pandas>=2.1.4
+numpy>=1.24.4
+scipy>=1.11.4
+
+# 机器学习
+scikit-learn>=1.3.2
+xgboost>=2.0.2
+lightgbm>=4.1.0
+shap>=0.44.0
+
+# 监控和日志
+loguru>=0.7.2
+psutil>=5.9.6
+
+# 文档生成
+markdown>=3.5.1
+jinja2>=3.1.2
+
+# 测试框架
+pytest>=7.4.3
+pytest-asyncio>=0.21.1
+requests>=2.31.0
+
+# 部署工具
+docker>=6.1.3
+pyyaml>=6.0.1
+paramiko>=3.3.1
+fabric>=3.2.2
+
+# 安全
+cryptography>=41.0.7
+
+# 数据可视化
+matplotlib>=3.8.2
+seaborn>=0.13.0
+
+# 任务队列
+celery>=5.3.4
+
+# 时间处理
+python-dateutil>=2.8.2
+
+# 配置管理
+python-dotenv>=1.0.0
+
+# HTTP客户端
+httpx>=0.25.2
+
+# 进度条
+tqdm>=4.66.1
+
+# JSON处理
+orjson>=3.9.10
+
+# 数据验证
+cerberus>=1.3.5
+
+# 重试机制
+tenacity>=8.2.3
+
+# 并发控制
+aiohttp>=3.9.1
+
+# 文件处理
+watchdog>=3.0.0
+
+# 邮件发送
+email-validator>=2.1.0
+
+# 时区处理
+pytz>=2023.3
+
+# 加密
+bcrypt>=4.1.2
+
+# 数据序列化
+msgpack>=1.0.7
+
+# 环境管理
+python-multipart>=0.0.6
+
+# 命令行工具
+click>=8.1.7
+
+# 代码质量
+flake8>=6.1.0
+black>=23.11.0
+isort>=5.12.0
+
+# 类型检查
+mypy>=1.7.1
+
+# 测试覆盖率
+coverage>=7.3.2
+
+# 数值计算
+numba>=0.58.1
+
+# 并行计算
+joblib>=1.3.2
+
+# 调度器
+apscheduler>=3.10.4
+
+# SSL/TLS
+certifi>=2023.11.17
+
+# 超时控制
+timeout-decorator>=0.5.0
+
+# 版本控制
+gitpython>=3.1.40
+
+# 代码分析
+bandit>=1.7.5
+
+# 安全扫描
+safety>=2.3.5
+
+# 依赖检查
+pipdeptree>=2.13.1
+
+# 测试工具
+factory-boy>=3.3.0
+
+# 验证工具
+voluptuous>=0.14.1
+
+# 模式匹配
+jsonschema>=4.20.0
+
+# 表单验证
+wtforms>=3.1.1
+
+# 输入验证
+validators>=0.22.0
+
+# 二维码
+qrcode>=7.4.2
+
+# 自然语言处理
+nltk>=3.8.1
+
+# 文本分析
+textblob>=0.17.1
+
+# 正则表达式
+regex>=2023.10.3
+
+# 字符串处理
+unidecode>=1.3.7
+
+# 编码检测
+chardet>=5.2.0
+
+# 文件锁
+filelock>=3.13.1
+
+# Selenium for UI testing
+selenium>=4.15.2

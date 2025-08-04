@@ -1,0 +1,222 @@
+advanced:
+  data_clean:
+    alert_threshold: 3
+    auto_clean: false
+    date_tolerance: 3
+    enable_telemetry: true
+api_params:
+  cors_origins:
+  - '*'
+  default_limit: 100
+  host: 0.0.0.0
+  log_level: info
+  max_limit: 1000
+  min_limit: 1
+  port: 8000
+  rate_limiting:
+    burst_size: 20
+    enabled: true
+    requests_per_minute: 100
+  reload: false
+  workers: 1
+constants:
+  market_close_time: '15:00'
+  market_open_time: 09:30
+  trading_days_per_year: 252
+  trading_hours_per_day: 4
+data_quality:
+  anomaly_alert:
+    alert_threshold: 0.05
+    enabled: true
+    webhook_url: ${ALERT_WEBHOOK_URL}
+  data_completeness:
+    check_interval: 3600
+    min_completeness: 0.95
+  missing_value_handling:
+    max_fill_days: 5
+    method: forward_fill_industry_mean
+  outlier_detection:
+    enabled: true
+    methods:
+    - statistical
+    - logical
+    threshold: 3
+data_sync_params:
+  akshare:
+    api_limit: 100
+    enabled: true
+    retry_delay: 2
+    retry_times: 3
+  batch_size: 1000
+  financial_data:
+    batch_size: 100
+    sleep_interval: 0.5
+    start_date: '20200101'
+  fund_flow_data:
+    batch_size: 100
+    sleep_interval: 1.0
+    start_date: '20200101'
+  indicator_data:
+    batch_size: 500
+    sleep_interval: 0.2
+    start_date: '20200101'
+  industry_batch_size: 500
+  industry_sleep_interval: 0.3
+  max_days: 30
+  max_workers: 4
+  north_money_data:
+    sleep_interval: 2.0
+    start_date: '20200101'
+  retry_delay: 1
+  retry_times: 3
+  sentiment_data:
+    sleep_interval: 1.0
+    start_date: '20200101'
+  sleep_interval: 0.3
+  start_year: 2020
+  tushare:
+    api_limit: 200
+    enabled: true
+    retry_delay: 1
+    retry_times: 3
+database_params:
+  connection_pool_size: 10
+  default_limit: 100
+  max_overflow: 20
+  pool_recycle: 3600
+  pool_timeout: 30
+  string_length_medium: 100
+  string_length_short: 20
+  timescaledb:
+    chunk_time_interval: 1 month
+    compression_policy: 3 months
+    retention_policy: 5 years
+factor_params:
+  atr:
+    window: 14
+  bollinger:
+    num_std: 2
+    window: 20
+  ema:
+    long_window: 26
+    short_window: 12
+    windows:
+    - 12
+    - 26
+  kdj:
+    d_period: 3
+    j_period: 3
+    k_period: 9
+  ma:
+    long_window: 20
+    short_window: 5
+    windows:
+    - 5
+    - 10
+    - 20
+    - 60
+  macd:
+    fast_period: 12
+    signal_period: 9
+    slow_period: 26
+  mfi:
+    window: 14
+  min_data_days: 60
+  momentum:
+    period: 20
+    window: 10
+  roc:
+    window: 12
+  rsi:
+    window: 14
+  stochastic:
+    d_window: 3
+    k_window: 14
+  volume:
+    sma_windows:
+    - 5
+    - 20
+  williams:
+    window: 14
+feature_params:
+  batch_reduction_factor: 0.5
+  cache_dir: ./cache/explanations
+  cache_explanations: true
+  chunk_size: 10000
+  cuda_device: 0
+  explanation_timeout: 3600
+  fallback_to_cpu: true
+  gpu_oom_retry: 3
+  interaction_samples: 100
+  lookback_period: 14
+  max_batch_retries: 5
+  max_cache_entries: 2000
+  max_cache_size: 40960
+  max_gpu_memory: 20480
+  memory_threshold: 0.8
+  model_explainer_type: auto
+  shap_background_samples: 100
+  shap_batch_size: 500
+  shap_max_objects: 10000
+  shap_parallel: true
+  use_cuda: false
+  windows_cuda_workaround: true
+monitoring_params:
+  alerts:
+    cpu_threshold: 80.0
+    error_rate_threshold: 5.0
+    memory_threshold: 85.0
+    response_time_threshold: 1000
+  collection_interval: 60
+  evaluation_window: 60
+  metric_retention: 100
+  performance:
+    collection_interval: 60
+    retention_days: 30
+  slow_query_limit: 20
+  suppression_duration: 60
+quality_params:
+  orphan_threshold: 0.05
+  sample_size: 100
+strategy_params:
+  max_display_items: 20
+  risk_free_rate: 0.03
+  rolling_window_days: 60
+  trading_days_per_year: 252
+  var_confidence_level: 0.05
+sync_strategy:
+  dependency_management:
+    enabled: true
+    max_parallel_tasks: 5
+    task_timeout: 1800
+  full:
+    backup_before_sync: true
+    enabled: true
+    schedule: 0 2 * * 0
+  incremental:
+    check_interval: 3600
+    enabled: true
+    max_missing_days: 10
+task_params:
+  max_retries: 3
+  retry_countdown: 60
+  schedule_hour: 20
+  soft_timeout_minutes: 25
+  timeout_minutes: 30
+training_params:
+  lgbm_params:
+    colsample_bytree: 0.8
+    learning_rate: 0.05
+    max_depth: -1
+    metric: rmse
+    min_child_samples: 20
+    n_estimators: 1000
+    num_leaves: 31
+    objective: regression_l1
+    random_state: 42
+    reg_alpha: 0.1
+    reg_lambda: 0.1
+    subsample: 0.8
+  model_name: LightGBM
+  prediction_window: 5
+  test_size: 0.2

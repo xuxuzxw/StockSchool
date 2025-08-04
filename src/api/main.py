@@ -2,7 +2,7 @@ import os
 import sys
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
-from fastapi import FastAPI, HTTPException, Depends, Query, Path, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Depends, Query, Path, BackgroundTasks, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -23,12 +23,24 @@ from src.features.feature_store import FeatureStore
 from src.strategy.evaluation import StrategyEvaluator
 from src.monitoring.performance import performance_manager
 from src.monitoring.alerts import AlertEngine
+from src.monitoring.api import router as monitoring_router
+from src.monitoring.websocket import MonitoringWebSocketHandler
+from src.monitoring import start_monitoring_system, stop_monitoring_system
+
+# 导入新的因子API路由
+from src.api.factor_api import router as factor_router
+from src.api.factor_management_api import router as factor_management_router
+from src.api.feature_store_api import router as feature_store_router
+from src.api.auth import auth_router
+# 导入AI策略API路由
+from src.api.ai_strategy import router as ai_strategy_router
+from src.api.explainer_api import router as explainer_router
 
 # 创建FastAPI应用
 app = FastAPI(
     title="StockSchool量化投研系统API",
-    description="专业的量化投研数据分析平台",
-    version="1.0.0",
+    description="专业的量化投研数据分析平台 - 包含因子计算、策略分析、AI预测等功能",
+    version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -174,13 +186,50 @@ async def startup_event():
     # 初始化告警引擎
     get_alert_engine()
     
+    # 启动监控系统
+    try:
+        await start_monitoring_system()
+        logger.info("监控系统启动成功")
+    except Exception as e:
+        logger.error(f"监控系统启动失败: {e}")
+    
     logger.info("StockSchool API 启动完成")
+
+# 注册新的API路由
+# 认证路由
+app.include_router(auth_router)
+
+# 因子相关路由
+app.include_router(factor_router)
+app.include_router(factor_management_router)
+app.include_router(feature_store_router)
+
+# AI策略相关路由
+app.include_router(ai_strategy_router)
+app.include_router(explainer_router)
+
+# 监控相关路由
+app.include_router(monitoring_router)
+
+# WebSocket端点
+@app.websocket("/ws/monitoring")
+async def websocket_endpoint(websocket: WebSocket):
+    """监控WebSocket端点"""
+    handler = MonitoringWebSocketHandler()
+    await handler.handle_connection(websocket)
 
 # 关闭事件
 @app.on_event("shutdown")
 async def shutdown_event():
     """应用关闭事件"""
     logger.info("StockSchool API 关闭中...")
+    
+    # 停止监控系统
+    try:
+        await stop_monitoring_system()
+        logger.info("监控系统已停止")
+    except Exception as e:
+        logger.error(f"停止监控系统时出错: {e}")
     
     # 停止性能监控
     performance_manager.stop()
@@ -197,7 +246,24 @@ async def root():
     """API根路径"""
     return {
         "message": "欢迎使用StockSchool量化投研系统API",
-        "version": "1.0.0",
+        "version": "2.0.0",
+        "features": [
+            "因子计算与查询",
+            "因子有效性分析", 
+            "策略回测与分析",
+            "数据质量监控",
+            "系统性能监控",
+            "用户认证与权限管理"
+        ],
+        "endpoints": {
+            "authentication": "/api/v1/auth",
+            "factors": "/api/v1/factors",
+            "factor_management": "/api/v1/factor-management",
+            "feature_store": "/api/v1/feature-store",
+            "ai_strategy": "/ai-strategy",
+            "explainer": "/explainer",
+            "legacy_apis": "/api/v1/"
+        },
         "docs": "/docs",
         "redoc": "/redoc"
     }

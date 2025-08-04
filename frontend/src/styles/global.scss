@@ -1,0 +1,569 @@
+@import './variables.scss';
+@import './mixins.scss';
+
+// 全局样式重置
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 14px;
+  line-height: $line-height-base;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: $font-family-base;
+  font-size: $font-size-base;
+  color: $text-color-primary;
+  background-color: $background-color-base;
+  transition: $transition-color;
+  
+  @include dark-theme {
+    color: $dark-text-color-primary;
+    background-color: $dark-bg-color;
+  }
+}
+
+// 链接样式
+a {
+  color: $primary-color;
+  text-decoration: none;
+  transition: $transition-color;
+  
+  &:hover {
+    color: $primary-light-3;
+  }
+  
+  &:active {
+    color: $primary-dark-1;
+  }
+}
+
+// 标题样式
+h1, h2, h3, h4, h5, h6 {
+  font-weight: $font-weight-medium;
+  line-height: $line-height-small;
+  margin-bottom: $spacing-sm;
+  color: $text-color-primary;
+  
+  @include dark-theme {
+    color: $dark-text-color-primary;
+  }
+}
+
+h1 {
+  font-size: $font-size-extra-large * 1.5;
+  font-weight: $font-weight-bold;
+}
+
+h2 {
+  font-size: $font-size-extra-large * 1.25;
+  font-weight: $font-weight-semibold;
+}
+
+h3 {
+  font-size: $font-size-extra-large;
+  font-weight: $font-weight-semibold;
+}
+
+h4 {
+  font-size: $font-size-large;
+  font-weight: $font-weight-medium;
+}
+
+h5 {
+  font-size: $font-size-medium;
+  font-weight: $font-weight-medium;
+}
+
+h6 {
+  font-size: $font-size-base;
+  font-weight: $font-weight-medium;
+}
+
+// 段落样式
+p {
+  margin-bottom: $spacing-sm;
+  line-height: $line-height-base;
+}
+
+// 列表样式
+ul, ol {
+  padding-left: $spacing-lg;
+  margin-bottom: $spacing-sm;
+  
+  li {
+    margin-bottom: $spacing-xs;
+  }
+}
+
+// 表格样式
+table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  
+  th, td {
+    padding: $spacing-sm;
+    text-align: left;
+    border-bottom: 1px solid $border-color-light;
+    
+    @include dark-theme {
+      border-bottom-color: $dark-border-color-light;
+    }
+  }
+  
+  th {
+    font-weight: $font-weight-semibold;
+    background-color: $background-color-light;
+    
+    @include dark-theme {
+      background-color: $dark-bg-color-light;
+    }
+  }
+  
+  @include table-striped();
+}
+
+// 代码样式
+code {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+  padding: 2px 4px;
+  background-color: $background-color-light;
+  border-radius: $border-radius-small;
+  color: $danger-color;
+  
+  @include dark-theme {
+    background-color: $dark-bg-color-light;
+    color: #ff7875;
+  }
+}
+
+pre {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  background-color: $background-color-light;
+  border: 1px solid $border-color-light;
+  border-radius: $border-radius-base;
+  padding: $spacing-md;
+  overflow-x: auto;
+  line-height: $line-height-small;
+  
+  @include scrollbar();
+  
+  @include dark-theme {
+    background-color: $dark-bg-color-light;
+    border-color: $dark-border-color-light;
+  }
+  
+  code {
+    background: none;
+    padding: 0;
+    color: inherit;
+  }
+}
+
+// 引用样式
+blockquote {
+  border-left: 4px solid $primary-color;
+  padding-left: $spacing-md;
+  margin: $spacing-md 0;
+  color: $text-color-secondary;
+  font-style: italic;
+  
+  @include dark-theme {
+    color: $dark-text-color-secondary;
+  }
+}
+
+// 分割线
+hr {
+  border: none;
+  height: 1px;
+  background-color: $border-color-light;
+  margin: $spacing-lg 0;
+  
+  @include dark-theme {
+    background-color: $dark-border-color-light;
+  }
+}
+
+// 图片样式
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: $border-radius-base;
+}
+
+// 表单元素样式
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: $transition-base;
+  
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+// 滚动条样式
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: $background-color-light;
+  border-radius: 4px;
+  
+  @include dark-theme {
+    background: $dark-bg-color-light;
+  }
+}
+
+::-webkit-scrollbar-thumb {
+  background: $border-color-base;
+  border-radius: 4px;
+  transition: background 0.3s;
+  
+  &:hover {
+    background: $text-color-secondary;
+  }
+  
+  @include dark-theme {
+    background: $dark-border-color-base;
+    
+    &:hover {
+      background: $dark-text-color-secondary;
+    }
+  }
+}
+
+// 选择文本样式
+::selection {
+  background-color: rgba($primary-color, 0.2);
+  color: $text-color-primary;
+}
+
+::-moz-selection {
+  background-color: rgba($primary-color, 0.2);
+  color: $text-color-primary;
+}
+
+// 焦点样式
+:focus-visible {
+  outline: 2px solid $primary-color;
+  outline-offset: 2px;
+}
+
+// 工具类
+.text-center {
+  text-align: center;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-ellipsis {
+  @include text-ellipsis();
+}
+
+.text-ellipsis-2 {
+  @include text-ellipsis(2);
+}
+
+.text-ellipsis-3 {
+  @include text-ellipsis(3);
+}
+
+.clearfix {
+  @include clearfix();
+}
+
+.flex {
+  @include flex();
+}
+
+.flex-center {
+  @include flex-center();
+}
+
+.flex-column {
+  @include flex(column);
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.flex-auto {
+  flex: auto;
+}
+
+.flex-none {
+  flex: none;
+}
+
+// 间距工具类
+@each $prop, $abbrev in (margin: m, padding: p) {
+  @each $size, $length in (
+    0: 0,
+    1: $spacing-xs,
+    2: $spacing-sm,
+    3: $spacing-md,
+    4: $spacing-lg,
+    5: $spacing-xl,
+    6: $spacing-xxl
+  ) {
+    .#{$abbrev}-#{$size} {
+      #{$prop}: $length;
+    }
+    
+    .#{$abbrev}t-#{$size} {
+      #{$prop}-top: $length;
+    }
+    
+    .#{$abbrev}r-#{$size} {
+      #{$prop}-right: $length;
+    }
+    
+    .#{$abbrev}b-#{$size} {
+      #{$prop}-bottom: $length;
+    }
+    
+    .#{$abbrev}l-#{$size} {
+      #{$prop}-left: $length;
+    }
+    
+    .#{$abbrev}x-#{$size} {
+      #{$prop}-left: $length;
+      #{$prop}-right: $length;
+    }
+    
+    .#{$abbrev}y-#{$size} {
+      #{$prop}-top: $length;
+      #{$prop}-bottom: $length;
+    }
+  }
+}
+
+// 颜色工具类
+.text-primary {
+  color: $primary-color;
+}
+
+.text-success {
+  color: $success-color;
+}
+
+.text-warning {
+  color: $warning-color;
+}
+
+.text-danger {
+  color: $danger-color;
+}
+
+.text-info {
+  color: $info-color;
+}
+
+.text-muted {
+  color: $text-color-secondary;
+}
+
+.bg-primary {
+  background-color: $primary-color;
+  color: white;
+}
+
+.bg-success {
+  background-color: $success-color;
+  color: white;
+}
+
+.bg-warning {
+  background-color: $warning-color;
+  color: white;
+}
+
+.bg-danger {
+  background-color: $danger-color;
+  color: white;
+}
+
+.bg-info {
+  background-color: $info-color;
+  color: white;
+}
+
+// 股票相关工具类
+.stock-up {
+  @include stock-color(up);
+}
+
+.stock-down {
+  @include stock-color(down);
+}
+
+.stock-neutral {
+  @include stock-color(neutral);
+}
+
+// 评分相关工具类
+@for $i from 0 through 100 {
+  .score-#{$i} {
+    @include score-color($i);
+  }
+}
+
+// 阴影工具类
+@for $i from 1 through 5 {
+  .elevation-#{$i} {
+    @include elevation($i);
+  }
+}
+
+// 显示/隐藏工具类
+.hidden {
+  display: none;
+}
+
+.invisible {
+  visibility: hidden;
+}
+
+.visible {
+  visibility: visible;
+}
+
+// 响应式显示/隐藏
+@include respond-to(xs) {
+  .hidden-xs {
+    display: none;
+  }
+}
+
+@include respond-to(sm) {
+  .hidden-sm {
+    display: none;
+  }
+}
+
+@include respond-to(md) {
+  .hidden-md {
+    display: none;
+  }
+}
+
+@include respond-to(lg) {
+  .hidden-lg {
+    display: none;
+  }
+}
+
+@include respond-to(xl) {
+  .hidden-xl {
+    display: none;
+  }
+}
+
+// 动画工具类
+.fade-in {
+  @include fade-in();
+}
+
+.slide-in-up {
+  @include slide-in(up);
+}
+
+.slide-in-down {
+  @include slide-in(down);
+}
+
+.slide-in-left {
+  @include slide-in(left);
+}
+
+.slide-in-right {
+  @include slide-in(right);
+}
+
+.pulse {
+  @include pulse-animation();
+}
+
+// 减少动画
+@include reduced-motion {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+// 打印样式
+@media print {
+  * {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  
+  a,
+  a:visited {
+    text-decoration: underline;
+  }
+  
+  a[href]:after {
+    content: " (" attr(href) ")";
+  }
+  
+  abbr[title]:after {
+    content: " (" attr(title) ")";
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+}
+
+// 高对比度模式
+@include high-contrast {
+  * {
+    border-color: currentColor !important;
+  }
+  
+  button,
+  input,
+  select,
+  textarea {
+    border: 2px solid currentColor !important;
+  }
+}

@@ -1,0 +1,177 @@
+// 颜色变量
+$primary-color: #409eff;
+$success-color: #67c23a;
+$warning-color: #e6a23c;
+$danger-color: #f56c6c;
+$info-color: #909399;
+
+// 主题色调
+$primary-light-1: mix(white, $primary-color, 10%);
+$primary-light-2: mix(white, $primary-color, 20%);
+$primary-light-3: mix(white, $primary-color, 30%);
+$primary-light-4: mix(white, $primary-color, 40%);
+$primary-light-5: mix(white, $primary-color, 50%);
+$primary-light-6: mix(white, $primary-color, 60%);
+$primary-light-7: mix(white, $primary-color, 70%);
+$primary-light-8: mix(white, $primary-color, 80%);
+$primary-light-9: mix(white, $primary-color, 90%);
+
+$primary-dark-1: mix(black, $primary-color, 10%);
+$primary-dark-2: mix(black, $primary-color, 20%);
+
+// 文本颜色
+$text-color-primary: #303133;
+$text-color-regular: #606266;
+$text-color-secondary: #909399;
+$text-color-placeholder: #c0c4cc;
+
+// 边框颜色
+$border-color-base: #dcdfe6;
+$border-color-light: #e4e7ed;
+$border-color-lighter: #ebeef5;
+$border-color-extra-light: #f2f6fc;
+
+// 背景颜色
+$background-color-base: #f5f7fa;
+$background-color-light: #fafafa;
+$background-color-lighter: #ffffff;
+
+// 阴影
+$box-shadow-base: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.04);
+$box-shadow-dark: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.12);
+$box-shadow-light: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+
+// 字体
+$font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+$font-size-extra-large: 20px;
+$font-size-large: 18px;
+$font-size-medium: 16px;
+$font-size-base: 14px;
+$font-size-small: 13px;
+$font-size-extra-small: 12px;
+
+// 字重
+$font-weight-light: 300;
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+// 行高
+$line-height-base: 1.5;
+$line-height-small: 1.4;
+$line-height-large: 1.6;
+
+// 间距
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 16px;
+$spacing-lg: 24px;
+$spacing-xl: 32px;
+$spacing-xxl: 48px;
+
+// 边框半径
+$border-radius-base: 4px;
+$border-radius-small: 2px;
+$border-radius-large: 6px;
+$border-radius-round: 20px;
+$border-radius-circle: 50%;
+
+// 过渡动画
+$transition-base: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
+$transition-fade: opacity 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+$transition-md-fade: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+$transition-border: border-color 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+$transition-box-shadow: box-shadow 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+$transition-color: color 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+
+// 布局
+$header-height: 60px;
+$sidebar-width: 240px;
+$sidebar-collapsed-width: 64px;
+$content-padding: 20px;
+
+// 响应式断点
+$breakpoint-xs: 480px;
+$breakpoint-sm: 768px;
+$breakpoint-md: 992px;
+$breakpoint-lg: 1200px;
+$breakpoint-xl: 1920px;
+
+// Z-index
+$z-index-dropdown: 1000;
+$z-index-sticky: 1020;
+$z-index-fixed: 1030;
+$z-index-modal-backdrop: 1040;
+$z-index-modal: 1050;
+$z-index-popover: 1060;
+$z-index-tooltip: 1070;
+$z-index-toast: 1080;
+
+// 图表颜色
+$chart-colors: (
+  #5470c6,
+  #91cc75,
+  #fac858,
+  #ee6666,
+  #73c0de,
+  #3ba272,
+  #fc8452,
+  #9a60b4,
+  #ea7ccc,
+  #5470c6
+);
+
+// 状态颜色
+$status-colors: (
+  'success': $success-color,
+  'warning': $warning-color,
+  'danger': $danger-color,
+  'info': $info-color
+);
+
+// 暗色主题变量
+$dark-bg-color: #1a1a1a;
+$dark-bg-color-light: #2d2d2d;
+$dark-bg-color-lighter: #3a3a3a;
+$dark-text-color-primary: #e4e7ed;
+$dark-text-color-regular: #cfcfcf;
+$dark-text-color-secondary: #a8abb2;
+$dark-border-color-base: #4c4d4f;
+$dark-border-color-light: #414243;
+$dark-border-color-lighter: #363637;
+
+// 自定义业务颜色
+$stock-up-color: #f56565;     // 股票上涨红色
+$stock-down-color: #48bb78;   // 股票下跌绿色
+$stock-neutral-color: #a0aec0; // 股票平盘灰色
+
+$score-excellent: #38a169;    // 评分优秀
+$score-good: #68d391;         // 评分良好
+$score-average: #f6e05e;      // 评分一般
+$score-poor: #fc8181;         // 评分较差
+$score-bad: #e53e3e;          // 评分很差
+
+// 行业颜色映射
+$industry-colors: (
+  '银行': #4299e1,
+  '保险': #38b2ac,
+  '证券': #805ad5,
+  '房地产': #ed8936,
+  '建筑': #48bb78,
+  '钢铁': #718096,
+  '煤炭': #2d3748,
+  '石油': #1a202c,
+  '化工': #9f7aea,
+  '医药': #f56565,
+  '食品': #38a169,
+  '汽车': #3182ce,
+  '电子': #805ad5,
+  '通信': #38b2ac,
+  '计算机': #4299e1,
+  '传媒': #ed8936,
+  '电力': #f6e05e,
+  '公用事业': #68d391,
+  '交通运输': #fc8181,
+  '商贸': #fbb6ce
+);

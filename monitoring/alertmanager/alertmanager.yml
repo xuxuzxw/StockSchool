@@ -1,0 +1,146 @@
+# AlertManager 配置文件
+global:
+  smtp_smarthost: '${SMTP_SERVER}:${SMTP_PORT}'
+  smtp_from: '${ALERT_FROM_EMAIL}'
+  smtp_auth_username: '${SMTP_USERNAME}'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+  smtp_require_tls: true
+
+# 路由配置
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'default'
+  routes:
+    # 关键告警立即发送
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 0s
+      repeat_interval: 5m
+    
+    # 警告级别告警
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      group_wait: 30s
+      repeat_interval: 30m
+    
+    # 数据同步相关告警
+    - match:
+        job: stockschool-datasync
+      receiver: 'datasync-alerts'
+    
+    # 数据库相关告警
+    - match_re:
+        job: postgres|redis
+      receiver: 'database-alerts'
+
+# 接收器配置
+receivers:
+  - name: 'default'
+    email_configs:
+      - to: '${DEFAULT_ALERT_EMAIL}'
+        subject: '[StockSchool] {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          告警名称: {{ .Annotations.summary }}
+          告警描述: {{ .Annotations.description }}
+          告警级别: {{ .Labels.severity }}
+          告警时间: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          实例: {{ .Labels.instance }}
+          {{ end }}
+
+  - name: 'critical-alerts'
+    email_configs:
+      - to: '${CRITICAL_ALERT_EMAIL}'
+        subject: '[CRITICAL] StockSchool系统告警'
+        body: |
+          🚨 关键告警 🚨
+          
+          {{ range .Alerts }}
+          告警名称: {{ .Annotations.summary }}
+          告警描述: {{ .Annotations.description }}
+          告警级别: {{ .Labels.severity }}
+          告警时间: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          实例: {{ .Labels.instance }}
+          服务: {{ .Labels.job }}
+          
+          {{ end }}
+          
+          请立即检查系统状态！
+    webhook_configs:
+      - url: '${CRITICAL_WEBHOOK_URL}'
+        send_resolved: true
+        http_config:
+          bearer_token: '${WEBHOOK_TOKEN}'
+
+  - name: 'warning-alerts'
+    email_configs:
+      - to: '${WARNING_ALERT_EMAIL}'
+        subject: '[WARNING] StockSchool系统警告'
+        body: |
+          ⚠️ 系统警告 ⚠️
+          
+          {{ range .Alerts }}
+          告警名称: {{ .Annotations.summary }}
+          告警描述: {{ .Annotations.description }}
+          告警时间: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          实例: {{ .Labels.instance }}
+          
+          {{ end }}
+
+  - name: 'datasync-alerts'
+    email_configs:
+      - to: '${DATASYNC_ALERT_EMAIL}'
+        subject: '[DataSync] 数据同步告警'
+        body: |
+          📊 数据同步告警 📊
+          
+          {{ range .Alerts }}
+          告警名称: {{ .Annotations.summary }}
+          告警描述: {{ .Annotations.description }}
+          告警时间: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          
+          {{ end }}
+          
+          请检查数据同步状态和日志。
+
+  - name: 'database-alerts'
+    email_configs:
+      - to: '${DATABASE_ALERT_EMAIL}'
+        subject: '[Database] 数据库告警'
+        body: |
+          🗄️ 数据库告警 🗄️
+          
+          {{ range .Alerts }}
+          告警名称: {{ .Annotations.summary }}
+          告警描述: {{ .Annotations.description }}
+          告警时间: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          数据库: {{ .Labels.job }}
+          
+          {{ end }}
+          
+          请检查数据库状态和性能。
+
+# 抑制规则
+inhibit_rules:
+  # 如果服务完全down，则抑制其他相关告警
+  - source_match:
+      alertname: ServiceDown
+    target_match_re:
+      alertname: High.*|.*Slow.*
+    equal: ['job', 'instance']
+
+  # 如果数据库down，则抑制连接相关告警
+  - source_match:
+      alertname: PostgreSQLDown
+    target_match:
+      alertname: PostgreSQLTooManyConnections
+    equal: ['instance']
+
+# 静默配置模板
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'

@@ -1,0 +1,617 @@
+# StockSchool AI策略系统 - 第三阶段依赖
+
+# 核心框架
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+sqlalchemy>=2.0.23
+alembic>=1.13.0
+
+# 数据库驱动
+psycopg2-binary>=2.9.9
+redis>=5.0.1
+
+# 异步支持
+aiofiles>=23.2.1
+aioredis>=2.0.1
+asyncpg>=0.29.0
+
+# 数据处理
+numpy>=1.24.3
+pandas>=2.0.3
+scipy>=1.11.4
+scikit-learn>=1.3.2
+
+# 机器学习监控
+evidently>=0.4.11
+lime>=0.2.0
+whylogs>=1.3.13
+mlflow>=2.8.1
+
+# 系统监控
+psutil>=5.9.6
+prometheus-client>=0.19.0
+grafana-api>=1.0.3
+
+# 文档生成
+markdown>=3.5.1
+jinja2>=3.1.2
+weasyprint>=60.2
+reportlab>=4.0.7
+pygments>=2.17.2
+
+# 测试框架
+pytest>=7.4.3
+pytest-asyncio>=0.21.1
+pytest-cov>=4.1.0
+pytest-html>=4.1.1
+pytest-xdist>=3.5.0
+selenium>=4.15.2
+requests>=2.31.0
+locust>=2.17.0
+
+# 部署工具
+docker>=6.1.3
+kubernetes>=28.1.0
+ansible>=8.7.0
+terraform-compliance>=1.3.44
+
+# 安全
+cryptography>=41.0.7
+passlib[bcrypt]>=1.7.4
+python-jose[cryptography]>=3.3.0
+python-multipart>=0.0.6
+
+# HTTP客户端
+httpx>=0.25.2
+aiohttp>=3.9.1
+
+# 配置管理
+python-dotenv>=1.0.0
+pyyaml>=6.0.1
+toml>=0.10.2
+
+# 日志
+loguru>=0.7.2
+structlog>=23.2.0
+
+# 任务队列
+celery>=5.3.4
+redis>=5.0.1
+
+# 缓存
+cachetools>=5.3.2
+diskcache>=5.6.3
+
+# 时间处理
+python-dateutil>=2.8.2
+pytz>=2023.3
+
+# 数据验证
+cerberus>=1.3.5
+marshmallow>=3.20.1
+
+# API文档
+fastapi-users>=12.1.2
+fastapi-limiter>=0.1.5
+fastapi-cache2>=0.2.1
+
+# 图像处理（用于UI测试截图）
+Pillow>=10.1.0
+
+# 网络工具
+ping3>=4.0.4
+requests-toolbelt>=1.0.0
+
+# 数据可视化
+matplotlib>=3.8.2
+seaborn>=0.13.0
+plotly>=5.17.0
+
+# 性能分析
+memory-profiler>=0.61.0
+line-profiler>=4.1.1
+py-spy>=0.3.14
+
+# 代码质量
+black>=23.11.0
+flake8>=6.1.0
+mypy>=1.7.1
+isort>=5.12.0
+
+# 开发工具
+ipython>=8.17.2
+jupyter>=1.0.0
+
+
+
+# 文件处理
+openpyxl>=3.1.2
+xlsxwriter>=3.1.9
+
+# 压缩
+zstandard>=0.22.0
+
+# 进度条
+tqdm>=4.66.1
+
+# 命令行工具
+click>=8.1.7
+rich>=13.7.0
+
+# 邮件发送
+sendgrid>=6.10.0
+yagmail>=0.15.293
+
+# 消息队列
+pika>=1.3.2
+kafka-python>=2.0.2
+
+# 分布式计算
+dask>=2023.11.0
+ray>=2.8.0
+
+# 模型服务
+bentoml>=1.1.10
+mlserver>=1.4.0
+
+# 容器化
+docker-compose>=1.29.2
+
+# 监控告警
+slack-sdk>=3.26.1
+discord-webhook>=1.3.0
+
+# 数据库迁移
+yoyo-migrations>=8.2.0
+
+# 配置验证
+voluptuous>=0.14.1
+
+
+
+# 网络请求重试
+tenacity>=8.2.3
+
+# JSON处理
+orjson>=3.9.10
+
+# 模板引擎
+mako>=1.3.0
+
+# 数据序列化
+msgpack>=1.0.7
+
+# 加密
+fernet>=1.0.1
+
+
+
+# 进程管理
+supervisor>=4.2.5
+
+
+
+# 文件监控
+watchdog>=3.0.0
+
+# 内存数据库
+sqlite3>=3.40.0
+
+# 图数据库
+neo4j>=5.14.1
+
+# 时序数据库
+influxdb-client>=1.38.0
+
+# 搜索引擎
+elasticsearch>=8.11.0
+
+# 消息中间件
+rabbitmq>=0.2.0
+
+# 分布式锁
+redlock-py>=1.0.8
+
+# API限流
+slowapi>=0.1.9
+
+# 健康检查
+healthcheck>=1.3.3
+
+# 指标收集
+statsd>=4.0.1
+
+# 链路追踪
+opentelemetry-api>=1.21.0
+opentelemetry-sdk>=1.21.0
+
+# 配置中心
+consul>=1.1.0
+
+# 服务发现
+etcd3>=0.12.0
+
+# 负载均衡
+haproxy-stats>=2.0.1
+
+# 反向代理
+nginx-python>=1.1.0
+
+# SSL/TLS
+certifi>=2023.11.17
+
+# 数据压缩
+lz4>=4.3.2
+
+# 并发控制
+concurrent-futures>=3.1.1
+
+# 异步工具
+asyncio-throttle>=1.0.2
+
+# 重试机制
+backoff>=2.2.1
+
+# 超时控制
+timeout-decorator>=0.5.0
+
+# 内存优化
+memory-profiler>=0.61.0
+
+# CPU优化
+cython>=3.0.6
+
+# 数值计算
+numba>=0.58.1
+
+# 并行计算
+joblib>=1.3.2
+
+# 数据流
+apache-beam>=2.52.0
+
+# 实时处理
+kafka-python>=2.0.2
+
+# 批处理
+apache-airflow>=2.7.3
+
+# 工作流
+prefect>=2.14.11
+
+# 调度器
+apscheduler>=3.10.4
+
+# 分布式任务
+distributed>=2023.11.0
+
+# 集群管理
+kubernetes>=28.1.0
+
+# 容器编排
+docker-swarm>=1.0.0
+
+# 服务网格
+istio>=1.19.0
+
+# API网关
+kong>=3.4.0
+
+# 微服务
+nameko>=2.14.1
+
+# 事件驱动
+eventlet>=0.33.3
+
+# 消息传递
+zmq>=0.0.0
+
+# 数据同步
+rsync>=1.2.1
+
+# 备份恢复
+borg>=1.2.6
+
+# 版本控制
+gitpython>=3.1.40
+
+# 代码分析
+radon>=6.0.1
+
+# 安全扫描
+bandit>=1.7.5
+
+# 依赖检查
+safety>=2.3.5
+
+# 许可证检查
+licensecheck>=2023.3
+
+# 文档检查
+doc8>=1.1.1
+
+# 代码格式化
+autopep8>=2.0.4
+
+# 导入排序
+isort>=5.12.0
+
+# 类型检查
+mypy>=1.7.1
+
+# 测试覆盖率
+coverage>=7.3.2
+
+# 性能测试
+locust>=2.17.0
+
+# 压力测试
+artillery>=2.0.0
+
+# 端到端测试
+playwright>=1.40.0
+
+# API测试
+tavern>=2.4.1
+
+# 数据库测试
+pytest-postgresql>=5.0.0
+
+# 模拟测试
+responses>=0.24.1
+
+# 时间测试
+freezegun>=1.2.2
+
+# 随机测试
+hypothesis>=6.92.1
+
+# 基准测试
+pytest-benchmark>=4.0.0
+
+# 内存测试
+pytest-memray>=1.0.0
+
+# 并发测试
+pytest-xdist>=3.5.0
+
+# 重试测试
+pytest-rerunfailures>=12.0
+
+# 超时测试
+pytest-timeout>=2.2.0
+
+# 标记测试
+pytest-markers>=1.0.0
+
+# 参数化测试
+pytest-parametrize>=1.0.0
+
+# 夹具测试
+pytest-fixtures>=1.0.0
+
+# 插件测试
+pytest-plugins>=1.0.0
+
+# 报告生成
+pytest-html>=4.1.1
+
+# XML报告
+pytest-xml>=1.0.0
+
+# JSON报告
+pytest-json>=1.0.0
+
+# 测试数据
+factory-boy>=3.3.0
+
+# 假数据
+faker>=20.1.0
+
+# 测试工具
+testfixtures>=7.2.2
+
+# 断言工具
+assertpy>=1.1
+
+# 匹配工具
+hamcrest>=2.1.0
+
+# 验证工具
+voluptuous>=0.14.1
+
+# 模式匹配
+schema>=0.7.5
+
+# 数据验证
+cerberus>=1.3.5
+
+# 表单验证
+wtforms>=3.1.1
+
+# 输入验证
+validators>=0.22.0
+
+# 邮箱验证
+email-validator>=2.1.0
+
+# URL验证
+url-normalize>=1.4.3
+
+# 电话验证
+phonumbers>=8.13.26
+
+# 身份证验证
+id-validator>=1.0.0
+
+# 银行卡验证
+bank-card-validator>=1.0.0
+
+# 信用卡验证
+credit-card-validator>=1.0.0
+
+# 密码验证
+password-strength>=0.0.3
+
+# 验证码
+captcha>=0.4
+
+# 二维码
+qrcode>=7.4.2
+
+# 条形码
+python-barcode>=0.15.1
+
+# 图像识别
+opencv-python>=4.8.1.78
+
+# 文字识别
+pytesseract>=0.3.10
+
+# 语音识别
+speechrecognition>=3.10.0
+
+# 自然语言处理
+nltk>=3.8.1
+
+# 文本分析
+textblob>=0.17.1
+
+# 情感分析
+vadersentiment>=3.3.2
+
+# 关键词提取
+yake>=0.4.8
+
+# 文本摘要
+sumy>=0.11.0
+
+# 翻译
+googletrans>=4.0.0
+
+# 语言检测
+langdetect>=1.0.9
+
+# 拼写检查
+pyspellchecker>=0.7.2
+
+# 语法检查
+language-tool-python>=2.7.1
+
+# 文本清理
+text-unidecode>=1.3
+
+# 正则表达式
+regex>=2023.10.3
+
+# 字符串处理
+fuzzywuzzy>=0.18.0
+
+# 编码检测
+chardet>=5.2.0
+
+# 文件类型检测
+python-magic>=0.4.27
+
+# MIME类型
+mimetypes>=1.0.0
+
+# 文件操作
+shutil>=3.11.0
+
+# 路径操作
+pathlib>=1.0.1
+
+# 临时文件
+tempfile>=3.11.0
+
+# 文件锁
+filelock>=3.13.1
+
+# 文件监控
+watchdog>=3.0.0
+
+# 文件同步
+rsync>=1.2.1
+
+# 文件压缩
+zipfile>=3.11.0
+
+# 文件解压
+tarfile>=3.11.0
+
+# 文件加密
+cryptography>=41.0.7
+
+# 文件哈希
+hashlib>=3.11.0
+
+# 文件校验
+checksum>=1.0.0
+
+# 文件备份
+backup>=1.0.0
+
+# 文件恢复
+restore>=1.0.0
+
+# 文件版本
+version>=1.0.0
+
+# 文件历史
+history>=1.0.0
+
+# 文件审计
+audit>=1.0.0
+
+# 文件权限
+permissions>=1.0.0
+
+# 文件属性
+attributes>=1.0.0
+
+# 文件元数据
+metadata>=1.0.0
+
+# 文件标签
+tags>=1.0.0
+
+# 文件分类
+classification>=1.0.0
+
+# 文件搜索
+search>=1.0.0
+
+# 文件索引
+index>=1.0.0
+
+# 文件缓存
+cache>=1.0.0
+
+# 文件预览
+preview>=1.0.0
+
+# 文件转换
+convert>=1.0.0
+
+# 文件格式
+format>=1.0.0
+
+# 文件验证
+validate>=1.0.0
+
+# 文件修复
+repair>=1.0.0
+
+# 文件优化
+optimize>=1.0.0
+
+# 文件清理
+cleanup>=1.0.0
+
+# 文件整理
+organize>=1.0.0
+
+# 文件管理
+management>=1.0.0

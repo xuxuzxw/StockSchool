@@ -1,0 +1,230 @@
+version: '3.8'
+
+services:
+  # PostgreSQL + TimescaleDB 数据库
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    container_name: stockschool_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-stockschool}
+      POSTGRES_USER: ${POSTGRES_USER:-stockschool}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stockschool123}
+      TIMESCALEDB_TELEMETRY: off
+    ports:
+      - "15432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./schema:/app/schema
+      - ./database_updates:/app/database_updates
+    networks:
+      - stockschool_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stockschool} -d ${POSTGRES_DB:-stockschool}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: stockschool_redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - stockschool_network
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  # 数据同步服务
+  data_sync:
+    build:
+      context: .
+      dockerfile: Dockerfile.datasync
+    container_name: stockschool_data_sync
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-stockschool}:${POSTGRES_PASSWORD:-stockschool123}@postgres:5432/${POSTGRES_DB:-stockschool}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis123}@redis:6379/0
+      - TUSHARE_TOKEN=${TUSHARE_TOKEN}
+      - PYTHONPATH=/app
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - sync_data:/app/data
+    networks:
+      - stockschool_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/health')"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+
+  # API服务
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: stockschool_api
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-stockschool}:${POSTGRES_PASSWORD:-stockschool123}@postgres:5432/${POSTGRES_DB:-stockschool}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis123}@redis:6379/0
+      - PYTHONPATH=/app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./logs:/app/logs
+    networks:
+      - stockschool_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+
+  # 监控服务
+  monitoring:
+    build:
+      context: .
+      dockerfile: Dockerfile.monitoring
+    container_name: stockschool_monitoring
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-stockschool}:${POSTGRES_PASSWORD:-stockschool123}@postgres:5432/${POSTGRES_DB:-stockschool}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis123}@redis:6379/0
+      - PYTHONPATH=/app
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - monitoring_data:/app/monitoring
+    networks:
+      - stockschool_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Prometheus监控
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: stockschool_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - stockschool_network
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+
+  # Grafana仪表板
+  grafana:
+    image: grafana/grafana:latest
+    container_name: stockschool_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - stockschool_network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # Nginx反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: stockschool_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+      - nginx_logs:/var/log/nginx
+    networks:
+      - stockschool_network
+    depends_on:
+      - api
+      - monitoring
+      - grafana
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  sync_data:
+    driver: local
+  monitoring_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  nginx_logs:
+    driver: local
+
+networks:
+  stockschool_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

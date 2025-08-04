@@ -26,9 +26,9 @@ import lightgbm as lgb
 import warnings
 warnings.filterwarnings('ignore')
 
-from src.utils.config_loader import config
-from src.utils.db import get_db_engine
-from src.compute.processing import FactorProcessor
+from ..utils.config_loader import config
+from ..utils.db import get_db_engine
+from ..compute.processing import FactorProcessor
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -74,6 +74,60 @@ class ModelTrainingPipeline:
         }
         
         logger.info("AI模型训练流水线初始化完成")
+
+    def run_pipeline(self, 
+                     model_type: str, 
+                     factor_names: List[str],
+                     start_date: str,
+                     end_date: str,
+                     target_period: int = 5,
+                     hyperparams: Optional[Dict] = None) -> Dict[str, Any]:
+        """运行完整的模型训练流水线"""
+        self.pipeline_id = f"{model_type}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        self.start_time = datetime.now()
+        self.status = 'running'
+        self.data_source = 'database'
+        self.feature_set = factor_names
+        self.hyperparameters = hyperparams
+
+        logger.info(f"开始运行训练流水线: {self.pipeline_id}")
+
+        try:
+            # 1. 准备数据
+            features, targets = self.prepare_training_data(
+                factor_names, start_date, end_date, target_period
+            )
+            if features.empty or targets.empty:
+                raise ValueError("数据准备失败，无法继续训练")
+
+            # 2. 训练模型
+            model, training_time = self.train_model(
+                model_type, features, targets, hyperparams
+            )
+            self.training_time = training_time
+
+            # 3. 评估模型
+            metrics = self.evaluate_model(model, features, targets)
+
+            # 4. 保存模型
+            self.model_path, self.version = self.save_model(model, model_type, metrics)
+
+            self.status = 'completed'
+            logger.info(f"训练流水线 {self.pipeline_id} 成功完成")
+
+        except Exception as e:
+            self.status = 'failed'
+            self.error_message = str(e)
+            logger.error(f"训练流水线 {self.pipeline_id} 失败: {e}")
+        
+        self.end_time = datetime.now()
+        
+        # 记录流水线结果
+        pipeline_result = self.get_pipeline_summary()
+        self.log_pipeline_run(pipeline_result)
+        
+        return pipeline_result
+
     
     def prepare_training_data(self, 
                             factor_names: List[str],
@@ -135,6 +189,193 @@ class ModelTrainingPipeline:
         
         logger.info(f"训练数据准备完成: {len(training_data)} 个样本, {len(feature_columns)} 个特征")
         return features, targets
+
+    def train_model(self, 
+                    model_type: str, 
+                    features: pd.DataFrame, 
+                    targets: pd.DataFrame, 
+                    hyperparams: Optional[Dict] = None) -> Tuple[Any, float]:
+        """训练模型"""
+        logger.info(f"开始训练模型: {model_type}")
+        train_start_time = datetime.now()
+
+        if model_type not in self.model_classes:
+            raise ValueError(f"不支持的模型类型: {model_type}")
+
+        # 准备数据
+        X = features.drop(columns=['ts_code', 'trade_date'])
+        y = targets['target_return']
+
+        # 标准化特征
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+
+        # 初始化模型
+        model_class = self.model_classes[model_type]
+        model_params = self.training_config.get(model_type, {}).get('params', {})
+        if hyperparams:
+            model_params.update(hyperparams)
+        
+        model = model_class(**model_params)
+
+        # 训练
+        model.fit(X_scaled, y)
+
+        training_time = (datetime.now() - train_start_time).total_seconds()
+        logger.info(f"模型训练完成: {model_type}, 耗时: {training_time:.2f}秒")
+
+        return model, training_time
+
+    def evaluate_model(self, 
+                       model: Any, 
+                       features: pd.DataFrame, 
+                       targets: pd.DataFrame) -> Dict[str, float]:
+        """评估模型性能"""
+        logger.info("开始评估模型...")
+        
+        X = features.drop(columns=['ts_code', 'trade_date'])
+        y = targets['target_return']
+
+        # 标准化特征
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+
+        # 使用时间序列交叉验证
+        tscv = TimeSeriesSplit(n_splits=self.training_config.get('cv_splits', 5))
+        
+        scoring = {
+            'neg_mean_squared_error': 'neg_mean_squared_error',
+            'neg_mean_absolute_error': 'neg_mean_absolute_error',
+            'r2': 'r2'
+        }
+
+        scores = cross_val_score(model, X_scaled, y, cv=tscv, scoring=list(scoring.keys()))
+        
+        metrics = {
+            'mse': -np.mean(scores[0]),
+            'mae': -np.mean(scores[1]),
+            'r2': np.mean(scores[2])
+        }
+
+        logger.info(f"模型评估完成: {metrics}")
+        return metrics
+
+    def save_model(self, 
+                   model: Any, 
+                   model_type: str, 
+                   metrics: Dict[str, float]) -> Tuple[str, str]:
+        """保存模型和元数据"""
+        model_dir = os.path.join(self.model_save_path, model_type)
+        os.makedirs(model_dir, exist_ok=True)
+
+        # 版本号
+        version = datetime.now().strftime('%Y%m%d%H%M%S')
+        model_path = os.path.join(model_dir, f"{version}.pkl")
+        metadata_path = os.path.join(model_dir, f"{version}_metadata.json")
+
+        # 保存模型
+        joblib.dump(model, model_path)
+
+        # 保存元数据
+        metadata = {
+            'pipeline_id': self.pipeline_id,
+            'model_type': model_type,
+            'version': version,
+            'training_time': self.training_time,
+            'metrics': metrics,
+            'feature_set': self.feature_set,
+            'hyperparameters': self.hyperparameters,
+            'saved_at': datetime.now().isoformat()
+        }
+        with open(metadata_path, 'w') as f:
+            json.dump(metadata, f, indent=4)
+
+        logger.info(f"模型已保存: {model_path}")
+        return model_path, version
+
+    def get_pipeline_summary(self) -> Dict[str, Any]:
+        """获取流水线运行摘要"""
+        return {
+            'pipeline_id': self.pipeline_id,
+            'start_time': self.start_time.isoformat() if self.start_time else None,
+            'end_time': self.end_time.isoformat() if self.end_time else None,
+            'duration_seconds': (self.end_time - self.start_time).total_seconds() if self.start_time and self.end_time else None,
+            'status': self.status,
+            'model_type': self.model_type,
+            'model_version': self.version,
+            'model_path': self.model_path,
+            'data_source': self.data_source,
+            'feature_set': self.feature_set,
+            'hyperparameters': self.hyperparameters,
+            'training_time': self.training_time,
+            'evaluation_metrics': self.metrics,
+            'error_message': self.error_message
+        }
+
+    def log_pipeline_run(self, summary: Dict[str, Any]):
+        """将流水线运行记录到数据库"""
+        try:
+            with self.db_connector.connect() as conn:
+                cursor = conn.cursor()
+                # 创建表（如果不存在）
+                self._create_log_table(cursor)
+
+                # 插入记录
+                insert_query = """
+                INSERT INTO model_training_runs (
+                    pipeline_id, start_time, end_time, duration_seconds, status, 
+                    model_type, model_version, model_path, data_source, feature_set, 
+                    hyperparameters, training_time, evaluation_metrics, error_message
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                cursor.execute(insert_query, (
+                    summary['pipeline_id'],
+                    summary['start_time'],
+                    summary['end_time'],
+                    summary['duration_seconds'],
+                    summary['status'],
+                    summary['model_type'],
+                    summary['model_version'],
+                    summary['model_path'],
+                    summary['data_source'],
+                    json.dumps(summary['feature_set']),
+                    json.dumps(summary['hyperparameters']),
+                    summary['training_time'],
+                    json.dumps(summary['evaluation_metrics']),
+                    summary['error_message']
+                ))
+                conn.commit()
+                logger.info(f"流水线运行记录已保存到数据库: {summary['pipeline_id']}")
+        except Exception as e:
+            logger.error(f"无法记录流水线运行到数据库: {e}")
+
+    def _create_log_table(self, cursor):
+        """创建用于记录流水线运行的表"""
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS model_training_runs (
+            id SERIAL PRIMARY KEY,
+            pipeline_id VARCHAR(255) UNIQUE NOT NULL,
+            start_time TIMESTAMP,
+            end_time TIMESTAMP,
+            duration_seconds FLOAT,
+            status VARCHAR(50),
+            model_type VARCHAR(100),
+            model_version VARCHAR(100),
+            model_path VARCHAR(255),
+            data_source VARCHAR(100),
+            feature_set JSONB,
+            hyperparameters JSONB,
+            training_time FLOAT,
+            evaluation_metrics JSONB,
+            error_message TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+        cursor.execute(create_table_query)
+
+
+
+
     
     def _calculate_target_returns(self, 
                                 stock_list: List[str],

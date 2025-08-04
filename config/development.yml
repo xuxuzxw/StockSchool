@@ -1,0 +1,20 @@
+api_params:
+  log_level: debug
+  reload: true
+  workers: 1
+data_sync_params:
+  batch_size: 100
+  max_workers: 2
+  sleep_interval: 0.5
+database_params:
+  connection_pool_size: 5
+  max_overflow: 10
+feature_params:
+  max_cache_size: 1024
+  shap_batch_size: 100
+  use_cuda: false
+monitoring_params:
+  alerts:
+    cpu_threshold: 90.0
+    memory_threshold: 90.0
+  collection_interval: 30
