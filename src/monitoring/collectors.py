@@ -23,7 +23,7 @@ from sqlalchemy.exc import SQLAlchemyError
 import requests
 from contextlib import asynccontextmanager
 
-from src.utils.config_loader import config
+from src.config.unified_config import config
 from src.monitoring.models import SyncTaskStatus
 
 # 配置日志

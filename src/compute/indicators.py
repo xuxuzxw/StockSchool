@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from typing import Union, Optional
 from loguru import logger
-from ..utils.config_loader import config
+from src.config.unified_config import config
 
 
 class TechnicalIndicators:

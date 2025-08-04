@@ -26,7 +26,7 @@ import lightgbm as lgb
 import warnings
 warnings.filterwarnings('ignore')
 
-from ..utils.config_loader import config
+from src.config.unified_config import config
 from ..utils.db import get_db_engine
 from ..compute.processing import FactorProcessor
 

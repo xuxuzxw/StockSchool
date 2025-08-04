@@ -6,7 +6,7 @@ from pathlib import Path
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.utils.config_loader import Config, config
+from src.config.unified_config import config, config
 
 
 class TestConfig(unittest.TestCase):
@@ -119,7 +119,7 @@ class TestConfig(unittest.TestCase):
     
     def test_global_config_instance(self):
         """测试全局配置实例"""
-        from src.utils.config_loader import config as global_config
+        from src.config.unified_config import config as global_config
         
         # 测试全局实例可用
         self.assertIsNotNone(global_config)

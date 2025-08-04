@@ -21,7 +21,7 @@ from src.utils.gpu_utils import (
     GPUManager, get_device, is_gpu_available, get_gpu_info, 
     get_batch_size, check_memory_sufficient, handle_oom, fallback_to_cpu
 )
-from src.utils.config_loader import config
+from src.config.unified_config import config
 
 class TestGPUManager(unittest.TestCase):
     """GPU管理器测试类"""

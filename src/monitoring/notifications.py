@@ -26,7 +26,7 @@ import aiohttp
 from jinja2 import Template
 
 from src.monitoring.alerts import Alert, AlertSeverity
-from src.utils.config_loader import config
+from src.config.unified_config import config
 
 # 配置日志
 logger = logging.getLogger(__name__)

@@ -17,7 +17,7 @@ import threading
 import time
 from queue import Queue
 import traceback
-from src.utils.config_loader import config
+from src.config.unified_config import config
 
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))

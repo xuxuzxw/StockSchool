@@ -17,7 +17,7 @@ import os
 from datetime import datetime
 
 from src.strategy.model_explainer import ModelExplainer, ModelExplainerError
-from src.utils.config_loader import config
+from src.config.unified_config import config
 from src.monitoring.logger import get_logger
 
 logger = get_logger(__name__)

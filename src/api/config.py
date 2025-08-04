@@ -7,7 +7,7 @@ API配置管理
 
 from typing import Dict, Any, List
 from dataclasses import dataclass
-from src.utils.config_loader import config
+from src.config.unified_config import config
 
 
 @dataclass

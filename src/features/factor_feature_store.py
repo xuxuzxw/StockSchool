@@ -16,7 +16,7 @@ from sqlalchemy import text, MetaData, Table, Column, String, Float, Date, DateT
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 
-from src.utils.config_loader import config
+from src.config.unified_config import config
 from src.utils.db import get_db_engine
 from src.features.feature_store import FeatureStore
 

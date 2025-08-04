@@ -17,7 +17,7 @@ from typing import List, Dict, Any
 import joblib
 
 from src.strategy.model_explainer import ModelExplainer
-from src.utils.config_loader import config
+from src.config.unified_config import config
 
 # 页面配置
 st.set_page_config(

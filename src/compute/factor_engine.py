@@ -20,6 +20,7 @@ from utils.db import get_db_engine
 from utils.retry import idempotent_retry
 from utils.config_loader import config
 from compute.indicators import TechnicalIndicators
+from compute.fundamental_factor_engine import FundamentalFactorEngine
 
 
 class TechnicalFactorEngine:
@@ -117,223 +118,8 @@ class TechnicalFactorEngine:
         logger.info("成交量因子计算完成")
         return data
 
-class FundamentalFactorEngine:
-    """基本面因子计算引擎"""
-
-    def __init__(self, engine):
-        self.engine = engine
-        # Assuming FundamentalIndicators will be imported
-        # self.indicators = FundamentalIndicators()
-
-    def calculate_valuation_factors(self, financial_data: pd.DataFrame, market_data: pd.DataFrame) -> pd.DataFrame:
-        """计算估值因子"""
-        # 合并财务数据和市场数据
-        merged_data = pd.merge(financial_data, market_data, on=['ts_code', 'trade_date'], how='left')
-
-        # 计算 PE (市盈率)
-        # TTM 净利润 / 总市值
-        if 'net_profit_ttm' in merged_data.columns and 'total_mv' in merged_data.columns:
-            merged_data['pe_ttm'] = merged_data.apply(
-                lambda row: row['total_mv'] / row['net_profit_ttm'] if row['net_profit_ttm'] > 0 else np.nan,
-                axis=1
-            )
-
-        # 计算 PB (市净率)
-        # 总市值 / 最新一期财报的净资产
-        if 'total_hldr_eqy_exc_min_int' in merged_data.columns and 'total_mv' in merged_data.columns:
-            merged_data['pb'] = merged_data.apply(
-                lambda row: row['total_mv'] / row['total_hldr_eqy_exc_min_int'] if row['total_hldr_eqy_exc_min_int'] > 0 else np.nan,
-                axis=1
-            )
-
-        # 计算 PS (市销率)
-        # TTM 营业收入 / 总市值
-        if 'revenue_ttm' in merged_data.columns and 'total_mv' in merged_data.columns:
-            merged_data['ps_ttm'] = merged_data.apply(
-                lambda row: row['total_mv'] / row['revenue_ttm'] if row['revenue_ttm'] > 0 else np.nan,
-                axis=1
-            )
-
-        return merged_data
-
-    def calculate_profitability_factors(self, financial_data: pd.DataFrame) -> pd.DataFrame:
-        """计算盈利能力因子"""
-        result = financial_data.copy()
-
-        # ROE - 净资产收益率
-        if 'net_profit' in result.columns and 'total_hldr_eqy_exc_min_int' in result.columns:
-            result['roe'] = result.apply(
-                lambda row: self.indicators.calculate_roe(
-                    row.get('net_profit'), 
-                    row.get('total_hldr_eqy_exc_min_int')
-                ), axis=1
-            )
-
-        # ROA - 总资产收益率
-        if 'net_profit' in result.columns and 'total_assets' in result.columns:
-            result['roa'] = result.apply(
-                lambda row: self.indicators.calculate_roa(
-                    row.get('net_profit'), 
-                    row.get('total_assets')
-                ), axis=1
-            )
-
-        # 毛利率
-        if 'revenue' in result.columns and 'oper_cost' in result.columns:
-            result['gross_margin'] = result.apply(
-                lambda row: self.indicators.calculate_gross_margin(
-                    row.get('revenue'), 
-                    row.get('oper_cost')
-                ), axis=1
-            )
-
-        # 净利率
-        if 'revenue' in result.columns and 'net_profit' in result.columns:
-            result['net_margin'] = result.apply(
-                lambda row: self.indicators.calculate_net_margin(
-                    row.get('net_profit'), 
-                    row.get('revenue')
-                ), axis=1
-            )
-
-        return result
-
-    def get_market_data_for_financial_dates(self, financial_data: pd.DataFrame) -> pd.DataFrame:
-        """获取财务报告日期对应的市场数据"""
-        all_market_data = []
-        for index, row in financial_data.iterrows():
-            ts_code = row['ts_code']
-            # 报告期作为近似交易日
-            trade_date = row['end_date'].strftime('%Y%m%d') 
-            query = text(f"""
-                SELECT ts_code, trade_date, total_mv FROM daily_basic 
-                WHERE ts_code = '{ts_code}' AND trade_date = '{trade_date}'
-            """)
-            try:
-                with self.engine.connect() as connection:
-                    market_data = pd.read_sql(query, connection)
-                    if not market_data.empty:
-                        all_market_data.append(market_data)
-            except Exception as e:
-                logger.error(f"获取市场数据失败: {e}")
-        
-        if not all_market_data:
-            return pd.DataFrame()
-            
-        return pd.concat(all_market_data, ignore_index=True)
-
-    def calculate_all_fundamental_factors(self, financial_data: pd.DataFrame) -> pd.DataFrame:
-        """计算所有基本面因子"""
-        logger.info(f"开始计算基本面因子，数据量: {len(financial_data)}")
-        
-        result = financial_data.copy()
-        
-        # 计算各类因子
-        result = self.calculate_profitability_factors(result)
-        result = self.calculate_growth_factors(result)
-        result = self.calculate_leverage_factors(result)
-        result = self.calculate_liquidity_factors(result)
-
-        # 获取市场数据并计算估值因子
-        market_data = self.get_market_data_for_financial_dates(result)
-        if not market_data.empty:
-            result = self.calculate_valuation_factors(result, market_data)
-        
-        logger.info(f"基本面因子计算完成，共生成 {len(result.columns) - len(financial_data.columns)} 个因子")
-        
-        return result
-
-    def calculate_growth_factors(self, financial_data: pd.DataFrame) -> pd.DataFrame:
-        """计算成长性因子"""
-        result = financial_data.copy()
-        if 'ts_code' not in result.columns or 'end_date' not in result.columns:
-            return result
-
-        # 按股票代码分组，计算同比增长率
-        for ts_code in result['ts_code'].unique():
-            stock_data = result[result['ts_code'] == ts_code].sort_values('end_date').copy()
-            stock_data['end_date'] = pd.to_datetime(stock_data['end_date'])
-
-            # 营收同比增长率
-            if 'revenue' in stock_data.columns:
-                stock_data['revenue_yoy'] = stock_data.apply(
-                    lambda row: self._calculate_yoy(
-                        stock_data, row, 'revenue'
-                    ), axis=1
-                )
-
-            # 净利润同比增长率
-            if 'net_profit' in stock_data.columns:
-                stock_data['net_profit_yoy'] = stock_data.apply(
-                    lambda row: self._calculate_yoy(
-                        stock_data, row, 'net_profit'
-                    ), axis=1
-                )
-            
-            # 更新结果
-            result.update(stock_data)
-
-        return result
-
-    def _calculate_yoy(self, df: pd.DataFrame, current_row: pd.Series, column: str):
-        current_date = current_row['end_date']
-        previous_year_date = current_date - pd.DateOffset(years=1)
-
-        # 寻找最接近的去年同期数据
-        previous_data = df[
-            (df['end_date'] >= previous_year_date - pd.DateOffset(days=45)) &
-            (df['end_date'] <= previous_year_date + pd.DateOffset(days=45))
-        ]
-
-        if not previous_data.empty:
-            prev_row = previous_data.iloc[0]
-            current_value = current_row.get(column)
-            previous_value = prev_row.get(column)
-            
-            if pd.notna(current_value) and pd.notna(previous_value) and previous_value != 0:
-                return (current_value - previous_value) / abs(previous_value)
-        
-        return np.nan
-
-    def calculate_leverage_factors(self, financial_data: pd.DataFrame) -> pd.DataFrame:
-        """计算杠杆因子"""
-        result = financial_data.copy()
-
-        # 资产负债率
-        if 'total_liab' in result.columns and 'total_hldr_eqy_exc_min_int' in result.columns:
-            result['debt_to_equity'] = result.apply(
-                lambda row: self.indicators.calculate_debt_to_equity(
-                    row.get('total_liab'), 
-                    row.get('total_hldr_eqy_exc_min_int')
-                ), axis=1
-            )
-        
-        return result
-
-    def calculate_liquidity_factors(self, financial_data: pd.DataFrame) -> pd.DataFrame:
-        """计算流动性因子"""
-        result = financial_data.copy()
-
-        # 流动比率
-        if 'total_cur_assets' in result.columns and 'total_cur_liab' in result.columns:
-            result['current_ratio'] = result.apply(
-                lambda row: self.indicators.calculate_current_ratio(
-                    row.get('total_cur_assets'), 
-                    row.get('total_cur_liab')
-                ), axis=1
-            )
-
-        # 速动比率
-        if 'total_cur_assets' in result.columns and 'inventories' in result.columns and 'total_cur_liab' in result.columns:
-            result['quick_ratio'] = result.apply(
-                lambda row: self.indicators.calculate_quick_ratio(
-                    row.get('total_cur_assets'),
-                    row.get('inventories'),
-                    row.get('total_cur_liab')
-                ), axis=1
-            )
-        
-        return result
+# 旧版FundamentalFactorEngine已移除
+# 请使用 src.compute.fundamental_factor_engine.FundamentalFactorEngine
 
 class SentimentFactorEngine:
     """情绪面因子计算引擎"""
@@ -371,34 +157,47 @@ class FactorEngine:
 
     def calculate_fundamental_factors_for_stock(self, ts_code: str):
         """计算并存储单只股票的基本面因子"""
-        financial_data = self.get_financial_data(ts_code)
-        if financial_data.empty:
-            logger.warning(f"未找到 {ts_code} 的财务数据，跳过基本面因子计算")
-            return
-
-        # 计算所有基本面因子
-        fundamental_factors_df = self.fundamental_engine.calculate_all_fundamental_factors(financial_data)
-
-        # 存储因子
-        if not fundamental_factors_df.empty:
-            # 选择需要存储的列
-            columns_to_store = [
-                'ts_code', 'end_date', 'roe', 'roa', 'gross_margin', 'net_margin',
-                'revenue_yoy', 'net_profit_yoy', 'debt_to_equity', 'current_ratio', 
-                'quick_ratio', 'pe_ttm', 'pb', 'ps_ttm'
-            ]
+        try:
+            # 使用新版基本面因子引擎计算因子
+            result = self.fundamental_engine.calculate_factors(ts_code)
             
-            # 确保所有列都存在
-            existing_columns = [col for col in columns_to_store if col in fundamental_factors_df.columns]
-            storage_df = fundamental_factors_df[existing_columns].copy()
-            storage_df.rename(columns={'end_date': 'report_date'}, inplace=True)
-
-            # 存储到数据库
-            try:
-                storage_df.to_sql('stock_fundamental_factors', self.engine, if_exists='append', index=False)
-                logger.info(f"成功存储 {ts_code} 的 {len(storage_df)} 条基本面因子")
-            except Exception as e:
-                logger.error(f"存储 {ts_code} 的基本面因子失败: {e}")
+            if result.status.value != 'success':
+                logger.warning(f"股票 {ts_code} 基本面因子计算失败: {result.error_message}")
+                return
+            
+            if not result.factors:
+                logger.warning(f"股票 {ts_code} 未计算出任何基本面因子")
+                return
+            
+            # 转换因子结果为DataFrame格式用于存储
+            factor_data = []
+            for factor in result.factors:
+                factor_data.append({
+                    'ts_code': factor.ts_code,
+                    'report_date': factor.trade_date,
+                    'factor_name': factor.factor_name,
+                    'factor_value': factor.raw_value
+                })
+            
+            if factor_data:
+                storage_df = pd.DataFrame(factor_data)
+                
+                # 透视表格式，每个因子作为一列
+                pivot_df = storage_df.pivot_table(
+                    index=['ts_code', 'report_date'], 
+                    columns='factor_name', 
+                    values='factor_value'
+                ).reset_index()
+                
+                # 存储到数据库
+                try:
+                    pivot_df.to_sql('stock_fundamental_factors', self.engine, if_exists='append', index=False)
+                    logger.info(f"成功存储 {ts_code} 的 {len(pivot_df)} 条基本面因子")
+                except Exception as e:
+                    logger.error(f"存储 {ts_code} 的基本面因子失败: {e}")
+            
+        except Exception as e:
+            logger.error(f"计算股票 {ts_code} 基本面因子时发生错误: {e}")
 
 
     def get_stock_data(self, 

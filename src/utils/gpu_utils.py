@@ -21,7 +21,7 @@ import psutil
 import time
 import numpy as np
 from pathlib import Path
-from src.utils.config_loader import config
+from src.config.unified_config import config
 from src.monitoring.logger import get_logger
 
 logger = get_logger()

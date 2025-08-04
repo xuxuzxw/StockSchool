@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.utils.config_loader import config
+from src.config.unified_config import config
 from src.utils.db import get_db_engine
 from src.data.tushare_sync import TushareSynchronizer as TushareDataSync
 from src.compute.factor_engine import FactorEngine

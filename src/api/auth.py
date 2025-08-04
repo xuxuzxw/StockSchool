@@ -16,7 +16,7 @@ from pydantic import BaseModel
 import redis
 import logging
 
-from src.utils.config_loader import config
+from src.config.unified_config import config
 from src.utils.db import get_db_engine
 
 # 配置日志

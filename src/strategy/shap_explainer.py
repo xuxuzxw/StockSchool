@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Union
 from sklearn.base import BaseEstimator
 import logging
 from src.utils.gpu_utils import get_device, get_batch_size
-from src.utils.config_loader import config
+from src.config.unified_config import config
 from src.monitoring.logger import get_logger
 
 logger = get_logger(__name__)

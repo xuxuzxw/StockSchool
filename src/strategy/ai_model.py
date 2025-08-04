@@ -21,7 +21,7 @@ import xgboost as xgb
 from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.ensemble import RandomForestRegressor
 
-from ..utils.config_loader import Config
+from src.config.unified_config import config
 from ..utils.db import DatabaseManager
 from ..monitoring.logger import get_logger
 

@@ -18,7 +18,7 @@ from sklearn.linear_model import LinearRegression
 import warnings
 warnings.filterwarnings('ignore')
 
-from src.utils.config_loader import config
+from src.config.unified_config import config
 from src.utils.db import get_db_engine
 from src.utils.retry import idempotent_retry
 

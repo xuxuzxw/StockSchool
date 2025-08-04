@@ -15,7 +15,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from loguru import logger
-from src.utils.config_loader import config
+from src.config.unified_config import config
 import pandas as pd
 import numpy as np
 from collections import defaultdict, deque

@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 import logging
 
 import redis
-from src.utils.config_loader import config
+from src.config.unified_config import config
 
 logger = logging.getLogger(__name__)
 

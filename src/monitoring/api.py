@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from src.monitoring.collectors import collect_system_health, CollectorConfig, HealthMetric
 from src.monitoring.alerts import AlertEngine, AlertRule, Alert, AlertSeverity, AlertType, AlertStatus
 from src.monitoring.performance import PerformanceMonitor
-from src.utils.config_loader import config
+from src.config.unified_config import config
 
 # 配置日志
 logger = logging.getLogger(__name__)

@@ -13,7 +13,7 @@ import logging
 import inspect
 import hashlib
 
-from src.utils.config_loader import config
+from src.config.unified_config import config
 from src.utils.db import get_db_engine
 from src.features.factor_feature_store import FactorFeatureStore, FactorMetadata
 from src.compute.factor_engine import FactorEngine

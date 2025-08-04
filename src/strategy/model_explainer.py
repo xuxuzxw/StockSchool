@@ -28,7 +28,7 @@ import logging
 from functools import wraps
 import time
 
-from src.utils.config_loader import config
+from src.config.unified_config import config
 from src.utils.gpu_utils import (
     get_device, get_batch_size, get_gpu_info, 
     check_memory_sufficient, handle_oom, fallback_to_cpu
