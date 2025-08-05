@@ -33,6 +33,7 @@ class ICCalculationStrategy(StatisticalStrategy):
 
     def __init__(self, min_samples: int = 10):
         """方法描述"""
+        self.min_samples = min_samples
 
     def validate_data(self, data: pd.DataFrame) -> bool:
         """验证IC计算所需数据"""
@@ -74,6 +75,7 @@ class LayeredBacktestStrategy(StatisticalStrategy):
 
     def __init__(self, n_layers: int = 10, min_stocks_per_layer: int = 2):
         """方法描述"""
+        self.n_layers = n_layers
         self.min_stocks_per_layer = min_stocks_per_layer
 
     def validate_data(self, data: pd.DataFrame) -> bool:
@@ -118,6 +120,7 @@ class StatisticalAnalyzer:
 
     def __init__(self):
         """方法描述"""
+        self.strategies = {}
 
     def register_strategy(self, name: str, strategy: StatisticalStrategy):
         """注册统计策略"""

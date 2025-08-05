@@ -147,7 +147,7 @@ class EffectivenessAnalysisConfig:
 
 
 # 默认配置实例
-DEFAULT_EFFECTIVENESS_CONFIG = EffectivenessAnalysisget_config()
+DEFAULT_EFFECTIVENESS_CONFIG = EffectivenessAnalysisConfig()
 
 
 def get_analysis_config(analysis_type: AnalysisType, custom_config: Dict[str, Any] = None) -> Dict[str, Any]:

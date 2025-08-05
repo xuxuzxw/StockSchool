@@ -38,12 +38,12 @@ class FactorEngine:
     def __init__(self):
         """初始化因子引擎"""
         self.engine = get_db_engine()
-        self.factory = EngineFactory(self.engine)
+        self.factory = FactorEngineFactory()
 
         # 使用新架构的引擎
-        self.technical_engine = self.factory.get_engine("technical")
-        self.fundamental_engine = self.factory.get_engine("fundamental")
-        self.sentiment_engine = self.factory.get_engine("sentiment")
+        self.technical_engine = self.factory.create_engine("technical")
+        self.fundamental_engine = self.factory.create_engine("fundamental")
+        self.sentiment_engine = self.factory.create_engine("sentiment")
 
         logger.info("统一因子计算引擎初始化完成")
 

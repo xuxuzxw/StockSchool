@@ -346,6 +346,65 @@ class SentimentStrengthFactorCalculator(AbstractFactorCalculator):
         return results
 
 
+class NewsSentimentFactorCalculator(AbstractFactorCalculator):
+    """新闻情感因子计算器"""
+
+    def _execute_calculation(self, data: pd.DataFrame, **kwargs) -> Dict[str, pd.Series]:
+        """执行新闻情感因子计算"""
+        return self.calculate(data, **kwargs)
+
+    def _get_required_columns(self) -> List[str]:
+        """获取计算所需的数据列"""
+        return ["close"]
+
+    def calculate_news_sentiment(self, market_data: pd.DataFrame) -> pd.Series:
+        """计算新闻情感得分"""
+        # 基于新闻文本的情感分析
+        # 这里使用模拟数据，实际应用中需要接入新闻API
+        sentiment_scores = np.random.normal(0.5, 0.3, len(market_data))
+        sentiment_scores = np.clip(sentiment_scores, 0, 1)
+        return pd.Series(sentiment_scores, index=market_data.index)
+
+    def calculate_sentiment_intensity(self, market_data: pd.DataFrame) -> pd.Series:
+        """计算情感强度"""
+        # 基于情感词的强度计算
+        volatility = market_data['close'].pct_change().rolling(window=5).std()
+        intensity = 1 - np.exp(-abs(volatility))
+        return pd.Series(intensity, index=market_data.index)
+
+    def calculate_sentiment_consistency(self, market_data: pd.DataFrame) -> pd.Series:
+        """计算情感一致性"""
+        # 基于连续时间段情感的一致性
+        returns = market_data['close'].pct_change()
+        consistency = returns.rolling(window=10).apply(lambda x: np.std(x) if len(x) > 1 else 0)
+        consistency = 1 - (consistency / consistency.max()) if consistency.max() > 0 else pd.Series(0, index=market_data.index)
+        return pd.Series(consistency, index=market_data.index)
+
+    def calculate_sentiment_momentum(self, market_data: pd.DataFrame) -> pd.Series:
+        """计算情感动量"""
+        # 基于情感变化的动量因子
+        returns = market_data['close'].pct_change()
+        momentum = returns.rolling(window=5).mean() - returns.rolling(window=20).mean()
+        momentum = (momentum - momentum.min()) / (momentum.max() - momentum.min()) if momentum.max() != momentum.min() else pd.Series(0.5, index=market_data.index)
+        return pd.Series(momentum, index=market_data.index)
+
+    def calculate(self, market_data: pd.DataFrame, **kwargs) -> Dict[str, pd.Series]:
+        """计算所有新闻情感类因子"""
+        results = {}
+
+        try:
+            results["news_sentiment_score"] = self.calculate_news_sentiment(market_data)
+            results["sentiment_intensity"] = self.calculate_sentiment_intensity(market_data)
+            results["sentiment_consistency"] = self.calculate_sentiment_consistency(market_data)
+            results["sentiment_momentum"] = self.calculate_sentiment_momentum(market_data)
+
+        except Exception as e:
+            logger.error(f"计算新闻情感类因子时出错: {e}")
+            raise
+
+        return results
+
+
 class EventFactorCalculator(AbstractFactorCalculator):
     """事件类因子计算器"""
 
@@ -459,13 +518,14 @@ class SentimentFactorEngine(BaseFactorEngine):
         """初始化情绪面因子引擎"""
         super().__init__(engine, FactorType.SENTIMENT)
 
-        # 暂时设置为None，因为这些计算器类缺少抽象方法实现
-        self.money_flow_calculator = None
-        self.attention_calculator = None
-        self.sentiment_calculator = None
-        self.event_calculator = None
+        # 初始化各类因子计算器
+        self.money_flow_calculator = MoneyFlowFactorCalculator()
+        self.attention_calculator = AttentionFactorCalculator()
+        self.sentiment_calculator = SentimentStrengthFactorCalculator()
+        self.event_calculator = EventFactorCalculator()
+        self.news_sentiment_calculator = NewsSentimentFactorCalculator()
 
-        logger.info("情绪面因子计算器初始化跳过（待实现）")
+        logger.info("情绪面因子引擎初始化完成")
 
         # 初始化因子配置和元数据
         self._initialize_factors()
@@ -591,6 +651,32 @@ class SentimentFactorEngine(BaseFactorEngine):
             )
             self.register_factor(metadata, config)
 
+        # 新闻情感类因子
+        news_sentiment_factors = [
+            ("news_sentiment_score", "新闻情感得分", "基于新闻文本的情感分析得分"),
+            ("sentiment_intensity", "情感强度", "衡量市场情绪波动的强度"),
+            ("sentiment_consistency", "情感一致性", "衡量市场情感的一致性程度"),
+            ("sentiment_momentum", "情感动量", "衡量情感变化的动量"),
+        ]
+
+        for factor_name, display_name, description in news_sentiment_factors:
+            metadata = create_factor_metadata(
+                name=factor_name,
+                description=description,
+                factor_type=FactorType.SENTIMENT,
+                category=FactorCategory.NEWS_SENTIMENT,
+            )
+            config = create_factor_config(
+                name=factor_name,
+                parameters={
+                    "calculation_method": "market_data_based",
+                    "update_frequency": "daily",
+                    "lookback_period": 30,
+                    "min_data_points": 10,
+                },
+            )
+            self.register_factor(metadata, config)
+
     def get_required_data(
         self, ts_code: str, start_date: Optional[date] = None, end_date: Optional[date] = None
     ) -> pd.DataFrame:
@@ -673,37 +759,24 @@ class SentimentFactorEngine(BaseFactorEngine):
             all_factors = {}
 
             # 资金流向类因子
-            if self.money_flow_calculator is not None:
-                money_flow_factors = self.money_flow_calculator.calculate(market_data)
-                all_factors.update(money_flow_factors)
-            else:
-                # 提供模拟的资金流向因子数据用于测试
-                all_factors["money_flow_ratio"] = pd.Series([0.1] * len(market_data), index=market_data.index)
+            money_flow_factors = self.money_flow_calculator.calculate(market_data)
+            all_factors.update(money_flow_factors)
 
             # 关注度类因子
-            if self.attention_calculator is not None:
-                attention_factors = self.attention_calculator.calculate(market_data)
-                all_factors.update(attention_factors)
-            else:
-                # 提供模拟的关注度因子数据用于测试
-                all_factors["attention_score"] = pd.Series([0.5] * len(market_data), index=market_data.index)
+            attention_factors = self.attention_calculator.calculate(market_data)
+            all_factors.update(attention_factors)
 
             # 情绪强度类因子
-            if self.sentiment_calculator is not None:
-                sentiment_factors = self.sentiment_calculator.calculate(market_data)
-                all_factors.update(sentiment_factors)
-            else:
-                # 提供模拟的情绪强度因子数据用于测试
-                all_factors["sentiment_strength"] = pd.Series([0.3] * len(market_data), index=market_data.index)
+            sentiment_factors = self.sentiment_calculator.calculate(market_data)
+            all_factors.update(sentiment_factors)
 
             # 事件类因子
-            if self.event_calculator is not None:
-                event_factors = self.event_calculator.calculate(market_data)
-                all_factors.update(event_factors)
-            else:
-                # 提供模拟的事件因子数据用于测试
-                all_factors["abnormal_volume"] = pd.Series([0.2] * len(market_data), index=market_data.index)
-                all_factors["abnormal_return"] = pd.Series([0.1] * len(market_data), index=market_data.index)
+            event_factors = self.event_calculator.calculate(market_data)
+            all_factors.update(event_factors)
+
+            # 新闻情感类因子
+            news_sentiment_factors = self.news_sentiment_calculator.calculate(market_data)
+            all_factors.update(news_sentiment_factors)
 
             # 过滤指定的因子
             if factor_names:

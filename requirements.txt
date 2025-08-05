@@ -1,64 +1,81 @@
-# StockSchool 核心依赖
-torch==1.13.1+cu117
-torchvision==0.14.1+cu117
-torchaudio==0.13.1+cu117
+# StockSchool 验收测试依赖包
 
-# 机器学习和数据处理
-scikit-learn==1.3.0
-pandas==2.0.3
-numpy==1.24.3
-scipy==1.10.1
+# 数据库相关
+psycopg2-binary==2.9.9
+redis==5.0.1
+sqlalchemy==2.0.23
+alembic==1.13.1
 
-# 模型解释和可视化
-shap[cuda]==0.43.0
-matplotlib==3.7.2
-seaborn==0.12.2
-plotly==5.15.0
-kaleido==0.2.1
+# 数据处理
+pandas==2.1.4
+numpy==1.24.4
+scipy==1.11.4
 
-# 数据处理和存储
-pyarrow==12.0.1
-pandas==2.0.3
-sqlite3==2.6.0
-psycopg2-binary==2.9.7
+# 机器学习
+scikit-learn==1.3.2
+lightgbm==4.1.0
+xgboost==2.0.2
+shap==0.44.0
 
-# 系统监控和日志
-pynvml==11.5.0
-psutil==5.9.5
-loguru==0.7.0
-
-# Web框架和API
-fastapi==0.100.0
-uvicorn[standard]==0.23.1
+# API和Web框架
+fastapi==0.104.1
+uvicorn==0.24.0
 requests==2.31.0
-httpx==0.24.1
-
-# 异步处理和任务队列
-celery==5.3.1
-redis==4.6.0
-
-# 配置和工具
-PyYAML==6.0.1
-python-dotenv==1.0.0
-joblib==1.3.1
-
-# 测试框架
-pytest==7.4.0
-pytest-asyncio==0.21.0
-pytest-cov==4.1.0
-
-# 性能分析
-memory-profiler==0.61.0
-line-profiler==4.0.3
+httpx==0.25.2
 
 # 数据获取
-tushare==1.2.88
-akshare==1.10.3
+tushare==1.2.89
+akshare==1.12.80
 
-# 其他工具
-mmap2==0.1.0
-tqdm==4.65.0
+# 测试框架
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+pytest-xdist==3.5.0
 
-# 配置管理系统依赖
-watchdog==3.0.0
-packaging==23.1
+# 代码质量
+pylint==3.0.3
+flake8==6.1.0
+black==23.11.0
+isort==5.12.0
+
+# 性能测试
+locust==2.17.0
+memory-profiler==0.61.0
+
+# 可视化
+matplotlib==3.8.2
+plotly==5.17.0
+seaborn==0.13.0
+
+# 工具库
+pydantic==2.5.1
+python-dotenv==1.0.0
+click==8.1.7
+rich==13.7.0
+loguru==0.7.2
+
+# 时间处理
+python-dateutil==2.8.2
+pytz==2023.3
+
+# 配置管理
+pyyaml==6.0.1
+configparser==6.0.0
+
+# 加密和安全
+cryptography==41.0.8
+bcrypt==4.1.2
+
+# 并发处理
+asyncio==3.4.3
+aiofiles==23.2.1
+aioredis==2.0.1
+
+# 监控和日志
+prometheus-client==0.19.0
+structlog==23.2.0
+
+# 开发工具
+ipython==8.18.1
+jupyter==1.0.0

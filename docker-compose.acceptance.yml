@@ -1,0 +1,85 @@
+# StockSchool 验收测试环境 Docker Compose 配置
+version: '3.8'
+
+services:
+  # PostgreSQL + TimescaleDB 数据库服务
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    container_name: stockschool_postgres_acceptance
+    environment:
+      POSTGRES_DB: stockschool_acceptance
+      POSTGRES_USER: acceptance_user
+      POSTGRES_PASSWORD: acceptance_pass_2024
+      TIMESCALEDB_TELEMETRY: off
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_acceptance_data:/var/lib/postgresql/data
+      - ./test_data/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./test_data/sample_data.sql:/docker-entrypoint-initdb.d/02-sample-data.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U acceptance_user -d stockschool_acceptance"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1'
+
+  # Redis 缓存服务
+  redis:
+    image: redis:7-alpine
+    container_name: stockschool_redis_acceptance
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes --requirepass acceptance_redis_2024
+    volumes:
+      - redis_acceptance_data:/data
+      - ./test_data/redis.conf:/usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "acceptance_redis_2024", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  # 测试数据生成器（可选）
+  data-generator:
+    build:
+      context: .
+      dockerfile: test_data/Dockerfile.data-generator
+    container_name: stockschool_data_generator
+    environment:
+      - DATABASE_URL=postgresql://acceptance_user:acceptance_pass_2024@postgres:5432/stockschool_acceptance
+      - REDIS_URL=redis://:acceptance_redis_2024@redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./test_data:/app/test_data
+    profiles:
+      - data-generation
+    restart: "no"
+
+volumes:
+  postgres_acceptance_data:
+    driver: local
+  redis_acceptance_data:
+    driver: local
+
+networks:
+  default:
+    name: stockschool_acceptance_network
+    driver: bridge

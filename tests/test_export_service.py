@@ -1,11 +1,27 @@
+<<<<<<< HEAD
+=======
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+简单的导出功能测试
+
+测试导出服务的基本功能
+
+作者: StockSchool Team
+创建时间: 2025-01-02
+"""
+
+import sys
+import os
+>>>>>>> 3dd61006e41ae74597a7c475b2d4c5824c415e3f
 import asyncio
 import json
 import logging
-import os
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
+<<<<<<< HEAD
 简单的导出功能测试
 
 测试导出服务的基本功能
@@ -13,6 +29,10 @@ from pathlib import Path
 作者: StockSchool Team
 创建时间: 2025-01-02
 
+=======
+# 添加项目根目录到Python路径
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+>>>>>>> 3dd61006e41ae74597a7c475b2d4c5824c415e3f
 
 # 设置日志
 logging.basicConfig(level=logging.INFO)
