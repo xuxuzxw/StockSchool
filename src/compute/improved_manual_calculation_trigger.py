@@ -1,3 +1,20 @@
+import json
+import time
+import uuid
+from abc import ABC, abstractmethod
+from contextlib import contextmanager
+from dataclasses import asdict, dataclass
+from datetime import date, datetime, timedelta
+from enum import Enum
+from functools import lru_cache
+from typing import Any, Dict, List, Optional, Protocol, Union
+
+import numpy as np
+import pandas as pd
+import structlog
+from loguru import logger
+from sqlalchemy import text
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -5,27 +22,12 @@
 使用设计模式和最佳实践重构
 """
 
-import pandas as pd
-import numpy as np
-from datetime import date, datetime, timedelta
-from typing import List, Dict, Optional, Any, Union, Protocol
-from loguru import logger
-from sqlalchemy import text
-import json
-import uuid
-from dataclasses import dataclass, asdict
-from enum import Enum
-from abc import ABC, abstractmethod
-from contextlib import contextmanager
-from functools import lru_cache
-import structlog
-import time
 
-from .factor_models import FactorType, FactorResult, CalculationStatus
-from .technical_factor_engine import TechnicalFactorEngine
+from .factor_models import CalculationStatus, FactorResult, FactorType
 from .fundamental_factor_engine import FundamentalFactorEngine
 from .sentiment_factor_engine import SentimentFactorEngine
-from .task_scheduler import TaskConfig, TaskType, TaskPriority
+from .task_scheduler import TaskConfig, TaskPriority, TaskType
+from .technical_factor_engine import TechnicalFactorEngine
 
 
 # ==================== 配置管理 ====================
@@ -35,7 +37,7 @@ class ValidationRules:
     value_ranges: Dict[str, Dict[str, float]]
     change_thresholds: Dict[str, float]
     null_tolerances: Dict[str, float]
-    
+
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]) -> 'ValidationRules':
         """从配置字典创建验证规则"""
@@ -116,9 +118,9 @@ class CalculationRequest:
     force_recalculate: bool = False
     validate_results: bool = True
     created_time: datetime = None
-    
+
     def __post_init__(self):
-        if self.created_time is None:
+        """方法描述"""
             self.created_time = datetime.now()
 
 
@@ -138,7 +140,7 @@ class CalculationComparison:
 # ==================== 验证策略 ====================
 class ValidationStrategy(ABC):
     """验证策略接口"""
-    
+
     @abstractmethod
     def validate(self, request: CalculationRequest) -> List[str]:
         """验证请求，返回错误消息列表"""
@@ -147,46 +149,46 @@ class ValidationStrategy(ABC):
 
 class BasicRequestValidator(ValidationStrategy):
     """基础请求验证器"""
-    
+
     def validate(self, request: CalculationRequest) -> List[str]:
         """验证基础请求参数"""
         errors = []
-        
+
         if not request.ts_codes:
             errors.append("股票代码列表不能为空")
-        
+
         if not request.factor_names and not request.factor_types:
             errors.append("必须指定因子名称或因子类型")
-        
+
         if request.start_date and request.end_date:
             if request.start_date > request.end_date:
                 errors.append("开始日期不能晚于结束日期")
-        
+
         return errors
 
 
 class StockCodeValidator(ValidationStrategy):
     """股票代码验证器"""
-    
+
     def validate(self, request: CalculationRequest) -> List[str]:
         """验证股票代码格式"""
         import re
         errors = []
         pattern = r'^\d{6}\.(SZ|SH)$'
-        
+
         for ts_code in request.ts_codes:
             if not re.match(pattern, ts_code):
                 errors.append(f"无效的股票代码: {ts_code}")
-        
+
         return errors
 
 
 class CompositeValidator(ValidationStrategy):
     """组合验证器"""
-    
+
     def __init__(self, validators: List[ValidationStrategy]):
-        self.validators = validators
-    
+        """方法描述"""
+
     def validate(self, request: CalculationRequest) -> List[str]:
         """执行所有验证器"""
         all_errors = []
@@ -199,7 +201,7 @@ class CompositeValidator(ValidationStrategy):
 # ==================== 工厂模式 ====================
 class FactorEngineFactory:
     """因子引擎工厂"""
-    
+
     @staticmethod
     def create_engine(factor_type: str, engine) -> Any:
         """创建因子计算引擎"""
@@ -208,23 +210,23 @@ class FactorEngineFactory:
             'fundamental': FundamentalFactorEngine,
             'sentiment': SentimentFactorEngine
         }
-        
+
         engine_class = engines.get(factor_type)
         if not engine_class:
             raise ValueError(f"不支持的因子类型: {factor_type}")
-        
+
         return engine_class(engine)
 
 
 # ==================== 数据访问层 ====================
 class CalculationRequestRepository:
     """计算请求数据访问层"""
-    
+
     def __init__(self, engine, table_config: TableConfig):
-        self.engine = engine
+        """方法描述"""
         self.table_config = table_config
         self.logger = structlog.get_logger()
-    
+
     @contextmanager
     def transaction(self):
         """事务管理上下文"""
@@ -238,7 +240,7 @@ class CalculationRequestRepository:
             raise
         finally:
             conn.close()
-    
+
     def save_request(self, request: CalculationRequest) -> None:
         """保存计算请求"""
         try:
@@ -256,7 +258,7 @@ class CalculationRequestRepository:
                 'created_time': request.created_time,
                 'status': RequestStatus.SUBMITTED.value
             }
-            
+
             with self.transaction() as conn:
                 df = pd.DataFrame([request_data])
                 df.to_sql(
@@ -265,13 +267,13 @@ class CalculationRequestRepository:
                     if_exists='append',
                     index=False
                 )
-                
+
             self.logger.info("计算请求已保存", request_id=request.request_id)
-            
+
         except Exception as e:
             self.logger.error("保存计算请求失败", request_id=request.request_id, error=str(e))
             raise DatabaseError(f"保存请求失败: {e}") from e
-    
+
     def load_request(self, request_id: str) -> Optional[CalculationRequest]:
         """从数据库加载请求"""
         try:
@@ -279,14 +281,14 @@ class CalculationRequestRepository:
                 SELECT * FROM {self.table_config.requests_table}
                 WHERE request_id = :request_id
             """)
-            
+
             with self.engine.connect() as conn:
                 result = conn.execute(query, {'request_id': request_id})
                 row = result.fetchone()
-                
+
                 if not row:
                     return None
-                
+
                 return CalculationRequest(
                     request_id=row.request_id,
                     mode=CalculationMode(row.mode),
@@ -300,11 +302,11 @@ class CalculationRequestRepository:
                     validate_results=row.validate_results,
                     created_time=row.created_time
                 )
-                
+
         except Exception as e:
             self.logger.error("加载计算请求失败", request_id=request_id, error=str(e))
             raise DatabaseError(f"加载请求失败: {e}") from e
-    
+
     def update_request_status(self, request_id: str, status: RequestStatus) -> None:
         """更新请求状态"""
         try:
@@ -313,14 +315,14 @@ class CalculationRequestRepository:
                 SET status = :status, updated_time = :updated_time
                 WHERE request_id = :request_id
             """)
-            
+
             with self.transaction() as conn:
                 conn.execute(query, {
                     'request_id': request_id,
                     'status': status.value,
                     'updated_time': datetime.now()
                 })
-                
+
         except Exception as e:
             self.logger.error("更新请求状态失败", request_id=request_id, error=str(e))
             raise DatabaseError(f"更新状态失败: {e}") from e
@@ -329,12 +331,12 @@ class CalculationRequestRepository:
 # ==================== 业务逻辑层 ====================
 class CalculationExecutor:
     """计算执行器"""
-    
+
     def __init__(self, engine, factory: FactorEngineFactory):
-        self.engine = engine
+        """方法描述"""
         self.factory = factory
         self.logger = structlog.get_logger()
-    
+
     def execute_calculation(self, request: CalculationRequest) -> Dict[str, Any]:
         """执行计算"""
         calculation_results = {
@@ -343,11 +345,11 @@ class CalculationExecutor:
             'total_factor_values': 0,
             'execution_summary': {}
         }
-        
+
         try:
             for factor_type in request.factor_types:
                 engine = self.factory.create_engine(factor_type, self.engine)
-                
+
                 for ts_code in request.ts_codes:
                     try:
                         result = engine.calculate_factors(
@@ -356,7 +358,7 @@ class CalculationExecutor:
                             end_date=request.end_date,
                             factor_names=request.factor_names
                         )
-                        
+
                         if result.status == CalculationStatus.SUCCESS:
                             calculation_results['successful_calculations'].append({
                                 'ts_code': ts_code,
@@ -365,7 +367,7 @@ class CalculationExecutor:
                                 'execution_time': result.execution_time.total_seconds(),
                                 'factor_count': len(result.factors)
                             })
-                            
+
                             for factor_values in result.factors.values():
                                 calculation_results['total_factor_values'] += len(factor_values)
                         else:
@@ -375,7 +377,7 @@ class CalculationExecutor:
                                 'error_message': result.error_message,
                                 'status': result.status.value
                             })
-                    
+
                     except Exception as e:
                         self.logger.error("计算失败", ts_code=ts_code, factor_type=factor_type, error=str(e))
                         calculation_results['failed_calculations'].append({
@@ -384,22 +386,22 @@ class CalculationExecutor:
                             'error_message': str(e),
                             'status': 'exception'
                         })
-            
+
             # 生成执行摘要
             calculation_results['execution_summary'] = self._generate_summary(request, calculation_results)
-            
+
         except Exception as e:
             self.logger.error("执行计算失败", error=str(e))
             raise CalculationExecutionError(f"计算执行失败: {e}") from e
-        
+
         return calculation_results
-    
+
     def _generate_summary(self, request: CalculationRequest, results: Dict[str, Any]) -> Dict[str, Any]:
         """生成执行摘要"""
         total_tasks = len(request.ts_codes) * len(request.factor_types)
         successful_count = len(results['successful_calculations'])
         failed_count = len(results['failed_calculations'])
-        
+
         return {
             'total_stocks': len(request.ts_codes),
             'total_factor_types': len(request.factor_types),
@@ -412,15 +414,15 @@ class CalculationExecutor:
 # ==================== 主控制器 ====================
 class ManualCalculationTrigger:
     """手动计算触发器 - 重构后的版本"""
-    
-    def __init__(self, 
+
+    def __init__(self,
                  engine,
                  validation_rules: ValidationRules,
                  table_config: TableConfig):
         self.engine = engine
         self.validation_rules = validation_rules
         self.table_config = table_config
-        
+
         # 初始化组件
         self.validator = CompositeValidator([
             BasicRequestValidator(),
@@ -428,12 +430,12 @@ class ManualCalculationTrigger:
         ])
         self.repository = CalculationRequestRepository(engine, table_config)
         self.executor = CalculationExecutor(engine, FactorEngineFactory())
-        
+
         # 计算历史记录
         self.calculation_history = {}
-        
+
         self.logger = structlog.get_logger()
-    
+
     def submit_calculation_request(self, request: CalculationRequest) -> str:
         """提交计算请求"""
         try:
@@ -441,31 +443,31 @@ class ManualCalculationTrigger:
             validation_errors = self.validator.validate(request)
             if validation_errors:
                 raise ValidationError(f"请求验证失败: {'; '.join(validation_errors)}")
-            
+
             # 保存请求记录
             self.repository.save_request(request)
-            
+
             self.logger.info("提交手动计算请求", request_id=request.request_id)
-            
+
             return request.request_id
-            
+
         except Exception as e:
             self.logger.error("提交计算请求失败", request_id=request.request_id, error=str(e))
             raise
-    
+
     def execute_calculation_request(self, request_id: str) -> Dict[str, Any]:
         """执行计算请求"""
         try:
             # 加载并验证请求
             request = self._load_and_validate_request(request_id)
-            
+
             # 更新状态为运行中
             self.repository.update_request_status(request_id, RequestStatus.RUNNING)
-            
+
             # 执行计算
             with self._measure_execution_time("calculation_execution", request_id=request_id):
                 calculation_results = self.executor.execute_calculation(request)
-            
+
             # 构建执行结果
             execution_result = {
                 'request_id': request_id,
@@ -474,23 +476,23 @@ class ManualCalculationTrigger:
                 'execution_time': datetime.now(),
                 'summary': calculation_results.get('execution_summary', {})
             }
-            
+
             # 更新状态为完成
             self.repository.update_request_status(request_id, RequestStatus.COMPLETED)
-            
+
             # 保存到历史记录
             self.calculation_history[request_id] = execution_result
-            
+
             self.logger.info("计算请求执行完成", request_id=request_id)
-            
+
             return execution_result
-            
+
         except Exception as e:
             self.logger.error("执行计算请求失败", request_id=request_id, error=str(e))
-            
+
             # 更新状态为失败
             self.repository.update_request_status(request_id, RequestStatus.FAILED)
-            
+
             # 保存失败结果
             error_result = {
                 'request_id': request_id,
@@ -498,18 +500,18 @@ class ManualCalculationTrigger:
                 'error_message': str(e),
                 'execution_time': datetime.now()
             }
-            
+
             self.calculation_history[request_id] = error_result
-            
+
             raise
-    
+
     def _load_and_validate_request(self, request_id: str) -> CalculationRequest:
         """加载并验证请求"""
         request = self.repository.load_request(request_id)
         if not request:
             raise ValueError(f"未找到计算请求: {request_id}")
         return request
-    
+
     @contextmanager
     def _measure_execution_time(self, operation: str, **context):
         """测量执行时间"""
@@ -524,17 +526,17 @@ class ManualCalculationTrigger:
                 duration_seconds=duration,
                 **context
             )
-    
-    def create_quick_calculation_request(self, 
-                                       ts_codes: List[str], 
+
+    def create_quick_calculation_request(self,
+                                       ts_codes: List[str],
                                        factor_names: List[str],
                                        **kwargs) -> str:
         """创建快速计算请求"""
         request_id = str(uuid.uuid4())
-        
+
         # 根据因子名称推断因子类型
         factor_types = self._infer_factor_types(factor_names)
-        
+
         request = CalculationRequest(
             request_id=request_id,
             mode=CalculationMode.MULTIPLE_STOCKS if len(ts_codes) > 1 else CalculationMode.SINGLE_STOCK,
@@ -543,24 +545,24 @@ class ManualCalculationTrigger:
             factor_types=factor_types,
             **kwargs
         )
-        
+
         return self.submit_calculation_request(request)
-    
+
     @lru_cache(maxsize=128)
     def _infer_factor_types(self, factor_names: tuple) -> List[str]:
         """根据因子名称推断因子类型"""
         # 将tuple转换为list以便处理
         factor_names_list = list(factor_names)
-        
+
         technical_factors = {'rsi', 'macd', 'sma', 'ema', 'bollinger', 'atr'}
         fundamental_factors = {'pe', 'pb', 'roe', 'roa', 'debt_ratio'}
         sentiment_factors = {'money_flow', 'attention', 'sentiment'}
-        
+
         factor_types = set()
-        
+
         for factor_name in factor_names_list:
             factor_base = factor_name.split('_')[0].lower()
-            
+
             if factor_base in technical_factors:
                 factor_types.add('technical')
             elif factor_base in fundamental_factors:
@@ -570,23 +572,23 @@ class ManualCalculationTrigger:
             else:
                 # 默认为技术面
                 factor_types.add('technical')
-        
+
         return list(factor_types)
-    
+
     def get_calculation_history(self, limit: int = 50) -> List[Dict[str, Any]]:
         """获取计算历史"""
         try:
             query = text(f"""
-                SELECT request_id, mode, ts_codes, factor_names, 
+                SELECT request_id, mode, ts_codes, factor_names,
                        created_time, status
                 FROM {self.table_config.requests_table}
                 ORDER BY created_time DESC
                 LIMIT :limit
             """)
-            
+
             with self.engine.connect() as conn:
                 result = conn.execute(query, {'limit': limit})
-                
+
                 history = []
                 for row in result.fetchall():
                     history.append({
@@ -597,9 +599,9 @@ class ManualCalculationTrigger:
                         'created_time': row.created_time,
                         'status': row.status
                     })
-                
+
                 return history
-                
+
         except Exception as e:
             self.logger.error("获取计算历史失败", error=str(e))
             return []

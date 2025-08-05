@@ -1,0 +1,136 @@
+# 监控系统配置示例
+
+# 系统监控配置
+system_monitoring:
+  enabled: true
+  interval: 30  # 监控间隔（秒）
+  cpu_threshold: 80  # CPU使用率阈值
+  memory_threshold: 85  # 内存使用率阈值
+  disk_threshold: 90  # 磁盘使用率阈值
+
+# 数据库监控配置
+database_monitoring:
+  enabled: true
+  interval: 60
+  connection_pool_threshold: 80
+  slow_query_threshold: 5.0  # 慢查询阈值（秒）
+
+# Redis监控配置
+redis_monitoring:
+  enabled: true
+  interval: 60
+  memory_threshold: 80
+  connection_threshold: 100
+
+# API监控配置
+api_monitoring:
+  enabled: true
+  response_time_threshold: 2.0  # 响应时间阈值（秒）
+  error_rate_threshold: 5.0  # 错误率阈值（%）
+
+# Celery监控配置
+celery_monitoring:
+  enabled: true
+  interval: 60
+  queue_size_threshold: 100
+  worker_threshold: 2
+
+# 数据质量监控配置
+data_quality_monitoring:
+  enabled: true
+  check_interval: 300  # 检查间隔（秒）
+  database_path: "data/data_quality.db"  # 数据质量数据库路径
+  retention_days: 30  # 数据保留天数
+  batch_size: 1000  # 批处理大小
+  
+  # 监控的表配置
+  monitored_tables:
+    - name: "stock_prices"
+      rules:
+        - dimension: "completeness"
+          check_type: "null_check"
+          column: "price"
+          threshold: 0.05  # 允许5%的空值
+        - dimension: "accuracy"
+          check_type: "range_check"
+          column: "price"
+          min_value: 0
+          max_value: 10000
+        - dimension: "timeliness"
+          check_type: "freshness_check"
+          column: "created_at"
+          max_age_hours: 24
+    
+    - name: "financial_reports"
+      rules:
+        - dimension: "completeness"
+          check_type: "null_check"
+          column: "revenue"
+          threshold: 0.01
+        - dimension: "consistency"
+          check_type: "duplicate_check"
+          columns: ["company_id", "report_date"]
+          threshold: 0.02
+
+# 告警配置
+alerting:
+  enabled: true
+  retention_days: 30
+  
+  # 通知配置
+  notifications:
+    email:
+      enabled: false
+      smtp_server: "smtp.example.com"
+      smtp_port: 587
+      username: "alerts@example.com"
+      password: "password"
+      recipients: ["admin@example.com"]
+    
+    webhook:
+      enabled: false
+      url: "https://hooks.slack.com/services/..."
+      timeout: 10
+
+# 性能监控配置
+performance_monitoring:
+  enabled: true
+  metrics_retention_days: 7
+  collection_interval: 60
+
+# WebSocket配置
+websocket:
+  enabled: true
+  port: 8765
+  max_connections: 100
+
+# 阈值配置
+thresholds:
+  # 系统阈值
+  cpu_usage: 80
+  memory_usage: 85
+  disk_usage: 90
+  
+  # 性能阈值
+  response_time: 2.0
+  error_rate: 5.0
+  
+  # 数据库阈值
+  db_connections: 80
+  queue_size: 100
+  
+  # 数据质量阈值
+  data_quality_overall: 80  # 总体质量分数阈值
+  data_quality_completeness: 85  # 完整性分数阈值
+  data_quality_accuracy: 90  # 准确性分数阈值
+  data_quality_timeliness: 75  # 时效性分数阈值
+  data_quality_consistency: 85  # 一致性分数阈值
+  data_quality_uniqueness: 95  # 唯一性分数阈值
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/monitoring.log"
+  max_size: "10MB"
+  backup_count: 5

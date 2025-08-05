@@ -17,7 +17,7 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 try:
-    from src.utils.config_loader import config
+    from src.config.unified_config import config
 except ImportError:
     config = {}
 

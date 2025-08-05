@@ -33,7 +33,7 @@ from src.compute.tasks import (
     batch_prediction,
     weekly_quality_check
 )
-from src.utils.config_loader import Config
+from src.config.unified_config import config as unified_config
 from loguru import logger
 
 # 配置日志
@@ -57,7 +57,7 @@ def run_full_workflow():
     
     try:
         # 加载配置
-        config = Config()
+        config = get_config()
         test_config = config.get('full_test_config', {})
         
         start_date = test_config.get('start_date', '20230101')
@@ -277,7 +277,7 @@ def run_simple_workflow():
     
     try:
         # 加载配置
-        config = Config()
+        config = get_config()
         test_config = config.get('full_test_config', {})
         
         start_date = test_config.get('start_date', '20230101')

@@ -41,44 +41,65 @@ data_quality:
     - statistical
     - logical
     threshold: 3
-data_sync_params:
-  akshare:
-    api_limit: 100
-    enabled: true
-    retry_delay: 2
-    retry_times: 3
-  batch_size: 1000
-  financial_data:
-    batch_size: 100
-    sleep_interval: 0.5
-    start_date: '20200101'
-  fund_flow_data:
-    batch_size: 100
-    sleep_interval: 1.0
-    start_date: '20200101'
-  indicator_data:
-    batch_size: 500
-    sleep_interval: 0.2
-    start_date: '20200101'
-  industry_batch_size: 500
-  industry_sleep_interval: 0.3
-  max_days: 30
-  max_workers: 4
-  north_money_data:
-    sleep_interval: 2.0
-    start_date: '20200101'
-  retry_delay: 1
-  retry_times: 3
-  sentiment_data:
-    sleep_interval: 1.0
-    start_date: '20200101'
-  sleep_interval: 0.3
-  start_year: 2020
+data_sources:
   tushare:
-    api_limit: 200
     enabled: true
-    retry_delay: 1
-    retry_times: 3
+    api_token: ${TUSHARE_TOKEN}
+    base_url: https://api.tushare.pro
+    rate_limit: 200
+    retry_config:
+      max_retries: 3
+      retry_delay: 1
+      backoff_factor: 2
+    batch_config:
+      batch_size: 1000
+      max_workers: 4
+    data_config:
+      start_date: '20200101'
+      max_days: 30
+    endpoints:
+      daily: api/daily
+      adj_factor: api/adj_factor
+      stock_basic: api/stock_basic
+      trade_cal: api/trade_cal
+      fina_indicator: api/fina_indicator
+      balancesheet: api/balancesheet
+      cashflow: api/cashflow
+      income: api/income
+      sw_index_daily: api/sw_daily
+      sw_index_classify: api/sw_classify
+      sw_index_member: api/sw_member
+      
+  akshare:
+    enabled: true
+    rate_limit: 100
+    retry_config:
+      max_retries: 3
+      retry_delay: 2
+      backoff_factor: 2
+    batch_config:
+      batch_size: 1000
+      max_workers: 4
+    data_config:
+      start_date: '20200101'
+    endpoints:
+      sentiment: akshare/stock_zh_a_tick_tx_js
+      attention: akshare/stock_zh_a_spot
+      news_emotion: akshare/stock_zh_a_tick_tx_js
+      market_heat: akshare/stock_zh_a_tick_tx_js
+      
+  sync_config:
+    default_sleep_interval: 0.3
+    financial_batch_size: 100
+    financial_sleep_interval: 0.5
+    indicator_batch_size: 500
+    indicator_sleep_interval: 0.2
+    sentiment_sleep_interval: 1.0
+    fund_flow_batch_size: 100
+    fund_flow_sleep_interval: 1.0
+    north_money_sleep_interval: 2.0
+    industry_batch_size: 500
+    industry_sleep_interval: 0.3
 database_params:
   connection_pool_size: 10
   default_limit: 100

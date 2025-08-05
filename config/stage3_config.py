@@ -256,15 +256,15 @@ class Stage3Config:
     
     def __init__(self):
         # 从环境变量加载配置
-        self.model_monitor = ModelMonitorConfig()
-        self.system_optimizer = SystemOptimizerConfig()
-        self.doc_generator = DocumentGeneratorConfig()
-        self.test_framework = TestFrameworkConfig()
-        self.deployment_manager = DeploymentManagerConfig()
-        self.database = DatabaseConfig()
-        self.redis = RedisConfig()
-        self.logging = LoggingConfig()
-        self.security = SecurityConfig()
+        self.model_monitor = ModelMonitorget_config()
+        self.system_optimizer = SystemOptimizerget_config()
+        self.doc_generator = DocumentGeneratorget_config()
+        self.test_framework = TestFrameworkget_config()
+        self.deployment_manager = DeploymentManagerget_config()
+        self.database = Databaseget_config()
+        self.redis = Redisget_config()
+        self.logging = Loggingget_config()
+        self.security = Securityget_config()
         
         # 加载环境变量覆盖
         self._load_from_env()
@@ -349,7 +349,7 @@ class Stage3Config:
             return False
 
 # 全局配置实例
-config = Stage3Config()
+config = Stage3get_config()
 
 # 配置验证
 if not config.validate():

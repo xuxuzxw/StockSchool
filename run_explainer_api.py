@@ -17,7 +17,7 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from src.api.explainer_api import router
-from src.utils.config_loader import config
+from src.config.unified_config import config
 from src.monitoring.logger import get_logger
 
 logger = get_logger(__name__)

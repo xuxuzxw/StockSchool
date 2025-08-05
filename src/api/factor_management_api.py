@@ -1,3 +1,18 @@
+import logging
+from datetime import date, datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+import pandas as pd
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, Field, validator
+
+from src.compute.calculation_monitor import FactorCalculationMonitor
+from src.compute.factor_cache import FactorCache
+from src.compute.task_scheduler import TaskConfig, TaskPriority, TaskScheduler, TaskType
+from src.config.unified_config import config
+from src.utils.db import get_db_engine
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -5,19 +20,7 @@
 提供因子元数据管理、配置管理、监控管理等功能
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import List, Dict, Any, Optional
-from datetime import date, datetime, timedelta
-from pydantic import BaseModel, Field, validator
-import pandas as pd
-import logging
 
-from src.config.unified_config import config
-from src.utils.db import get_db_engine
-from src.compute.task_scheduler import TaskScheduler, TaskConfig, TaskPriority, TaskType
-from src.compute.calculation_monitor import FactorCalculationMonitor
-from src.compute.factor_cache import FactorCache
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -50,10 +53,10 @@ class TaskScheduleConfig(BaseModel):
     dependencies: List[str] = Field(default_factory=list, description="依赖任务")
     parameters: Dict[str, Any] = Field(default_factory=dict, description="任务参数")
     is_enabled: bool = Field(True, description="是否启用")
-    
+
     @validator('priority')
     def validate_priority(cls, v):
-        if v not in ['low', 'normal', 'high', 'urgent']:
+        """方法描述"""
             raise ValueError('优先级必须是: low, normal, high, urgent')
         return v
 
@@ -66,10 +69,10 @@ class MonitoringRule(BaseModel):
     alert_level: str = Field("warning", description="告警级别")
     notification_channels: List[str] = Field(default_factory=list, description="通知渠道")
     is_enabled: bool = Field(True, description="是否启用")
-    
+
     @validator('alert_level')
     def validate_alert_level(cls, v):
-        if v not in ['info', 'warning', 'error', 'critical']:
+        """方法描述"""
             raise ValueError('告警级别必须是: info, warning, error, critical')
         return v
 
@@ -126,25 +129,25 @@ async def get_factor_definitions(
     """获取因子定义列表"""
     try:
         engine = get_db_engine()
-        
+
         # 构建查询条件
         conditions = []
         params = {}
-        
+
         if factor_type:
             conditions.append("factor_type = :factor_type")
             params['factor_type'] = factor_type
-            
+
         if category:
             conditions.append("category = :category")
             params['category'] = category
-            
+
         if is_active is not None:
             conditions.append("is_active = :is_active")
             params['is_active'] = is_active
-        
+
         where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
-        
+
         query = f"""
         SELECT factor_name, factor_type, category, description, formula,
                parameters, data_requirements, update_frequency, is_active,
@@ -153,11 +156,11 @@ async def get_factor_definitions(
         {where_clause}
         ORDER BY factor_type, category, factor_name
         """
-        
+
         with engine.connect() as conn:
             result = conn.execute(query, params)
             factors = []
-            
+
             for row in result:
                 factors.append({
                     'factor_name': row.factor_name,
@@ -172,7 +175,7 @@ async def get_factor_definitions(
                     'created_at': row.created_at.isoformat() if row.created_at else None,
                     'updated_at': row.updated_at.isoformat() if row.updated_at else None
                 })
-        
+
         return APIResponse(
             success=True,
             data={
@@ -181,7 +184,7 @@ async def get_factor_definitions(
             },
             message=f"成功获取{len(factors)}个因子定义"
         )
-        
+
     except Exception as e:
         logger.error(f"获取因子定义失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取因子定义失败: {str(e)}")
@@ -194,15 +197,15 @@ async def create_factor_definition(
     """创建新的因子定义"""
     try:
         engine = get_db_engine()
-        
+
         # 检查因子名称是否已存在
         check_query = "SELECT COUNT(*) as count FROM factor_definitions WHERE factor_name = :factor_name"
-        
+
         with engine.connect() as conn:
             result = conn.execute(check_query, {'factor_name': factor.factor_name})
             if result.fetchone().count > 0:
                 raise HTTPException(status_code=400, detail="因子名称已存在")
-            
+
             # 插入新因子定义
             insert_query = """
             INSERT INTO factor_definitions (
@@ -215,7 +218,7 @@ async def create_factor_definition(
                 :created_at, :updated_at
             )
             """
-            
+
             conn.execute(insert_query, {
                 'factor_name': factor.factor_name,
                 'factor_type': factor.factor_type,
@@ -229,13 +232,13 @@ async def create_factor_definition(
                 'created_at': datetime.now(),
                 'updated_at': datetime.now()
             })
-        
+
         return APIResponse(
             success=True,
             data={"factor_name": factor.factor_name},
             message="因子定义创建成功"
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -251,7 +254,7 @@ async def update_factor_definition(
     """更新因子定义"""
     try:
         engine = get_db_engine()
-        
+
         update_query = """
         UPDATE factor_definitions SET
             factor_type = :factor_type,
@@ -265,7 +268,7 @@ async def update_factor_definition(
             updated_at = :updated_at
         WHERE factor_name = :factor_name
         """
-        
+
         with engine.connect() as conn:
             result = conn.execute(update_query, {
                 'factor_name': factor_name,
@@ -279,16 +282,16 @@ async def update_factor_definition(
                 'is_active': factor.is_active,
                 'updated_at': datetime.now()
             })
-            
+
             if result.rowcount == 0:
                 raise HTTPException(status_code=404, detail="因子定义不存在")
-        
+
         return APIResponse(
             success=True,
             data={"factor_name": factor_name},
             message="因子定义更新成功"
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -303,21 +306,21 @@ async def delete_factor_definition(
     """删除因子定义"""
     try:
         engine = get_db_engine()
-        
+
         delete_query = "DELETE FROM factor_definitions WHERE factor_name = :factor_name"
-        
+
         with engine.connect() as conn:
             result = conn.execute(delete_query, {'factor_name': factor_name})
-            
+
             if result.rowcount == 0:
                 raise HTTPException(status_code=404, detail="因子定义不存在")
-        
+
         return APIResponse(
             success=True,
             data={"factor_name": factor_name},
             message="因子定义删除成功"
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -335,7 +338,7 @@ async def get_scheduled_tasks(
     try:
         scheduler = get_task_scheduler()
         tasks = scheduler.get_scheduled_tasks(task_type=task_type, is_enabled=is_enabled)
-        
+
         return APIResponse(
             success=True,
             data={
@@ -344,7 +347,7 @@ async def get_scheduled_tasks(
             },
             message=f"成功获取{len(tasks)}个调度任务"
         )
-        
+
     except Exception as e:
         logger.error(f"获取调度任务失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取调度任务失败: {str(e)}")
@@ -357,7 +360,7 @@ async def create_scheduled_task(
     """创建新的调度任务"""
     try:
         scheduler = get_task_scheduler()
-        
+
         # 转换为TaskConfig对象
         config = TaskConfig(
             task_id=f"scheduled_{task_config.task_name}",
@@ -369,15 +372,15 @@ async def create_scheduled_task(
             schedule_time=task_config.schedule_time,
             is_enabled=task_config.is_enabled
         )
-        
+
         task_id = scheduler.add_scheduled_task(config)
-        
+
         return APIResponse(
             success=True,
             data={"task_id": task_id},
             message="调度任务创建成功"
         )
-        
+
     except Exception as e:
         logger.error(f"创建调度任务失败: {e}")
         raise HTTPException(status_code=500, detail=f"创建调度任务失败: {str(e)}")
@@ -391,13 +394,13 @@ async def enable_scheduled_task(
     try:
         scheduler = get_task_scheduler()
         scheduler.enable_task(task_id)
-        
+
         return APIResponse(
             success=True,
             data={"task_id": task_id},
             message="调度任务已启用"
         )
-        
+
     except Exception as e:
         logger.error(f"启用调度任务失败: {e}")
         raise HTTPException(status_code=500, detail=f"启用调度任务失败: {str(e)}")
@@ -411,13 +414,13 @@ async def disable_scheduled_task(
     try:
         scheduler = get_task_scheduler()
         scheduler.disable_task(task_id)
-        
+
         return APIResponse(
             success=True,
             data={"task_id": task_id},
             message="调度任务已禁用"
         )
-        
+
     except Exception as e:
         logger.error(f"禁用调度任务失败: {e}")
         raise HTTPException(status_code=500, detail=f"禁用调度任务失败: {str(e)}")
@@ -431,13 +434,13 @@ async def get_monitoring_status(
     try:
         monitor = get_calculation_monitor()
         status = monitor.get_system_status()
-        
+
         return APIResponse(
             success=True,
             data=status,
             message="监控状态获取成功"
         )
-        
+
     except Exception as e:
         logger.error(f"获取监控状态失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取监控状态失败: {str(e)}")
@@ -451,14 +454,14 @@ async def get_performance_metrics(
     """获取性能指标数据"""
     try:
         monitor = get_calculation_monitor()
-        
+
         if not start_time:
             start_time = datetime.now() - timedelta(hours=24)
         if not end_time:
             end_time = datetime.now()
-        
+
         metrics = monitor.get_performance_metrics(start_time, end_time)
-        
+
         return APIResponse(
             success=True,
             data={
@@ -470,7 +473,7 @@ async def get_performance_metrics(
             },
             message="性能指标获取成功"
         )
-        
+
     except Exception as e:
         logger.error(f"获取性能指标失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取性能指标失败: {str(e)}")
@@ -490,7 +493,7 @@ async def get_alerts(
             is_resolved=is_resolved,
             limit=limit
         )
-        
+
         return APIResponse(
             success=True,
             data={
@@ -499,7 +502,7 @@ async def get_alerts(
             },
             message=f"成功获取{len(alerts)}条告警信息"
         )
-        
+
     except Exception as e:
         logger.error(f"获取告警信息失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取告警信息失败: {str(e)}")
@@ -513,13 +516,13 @@ async def get_cache_status(
     try:
         cache = get_factor_cache()
         status = cache.get_cache_status()
-        
+
         return APIResponse(
             success=True,
             data=status,
             message="缓存状态获取成功"
         )
-        
+
     except Exception as e:
         logger.error(f"获取缓存状态失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取缓存状态失败: {str(e)}")
@@ -532,18 +535,18 @@ async def clear_cache(
     """清空缓存"""
     try:
         cache = get_factor_cache()
-        
+
         if cache_type:
             cleared_count = cache.clear_cache_by_type(cache_type)
         else:
             cleared_count = cache.clear_all_cache()
-        
+
         return APIResponse(
             success=True,
             data={"cleared_count": cleared_count},
             message=f"成功清空{cleared_count}个缓存条目"
         )
-        
+
     except Exception as e:
         logger.error(f"清空缓存失败: {e}")
         raise HTTPException(status_code=500, detail=f"清空缓存失败: {str(e)}")
@@ -557,16 +560,16 @@ async def warm_up_cache(
     """缓存预热"""
     try:
         cache = get_factor_cache()
-        
+
         end_date = date.today()
         start_date = end_date - timedelta(days=date_range)
-        
+
         warmed_count = cache.warm_up_cache(
             factor_names=factor_names,
             start_date=start_date,
             end_date=end_date
         )
-        
+
         return APIResponse(
             success=True,
             data={
@@ -575,7 +578,7 @@ async def warm_up_cache(
             },
             message=f"成功预热{warmed_count}个缓存条目"
         )
-        
+
     except Exception as e:
         logger.error(f"缓存预热失败: {e}")
         raise HTTPException(status_code=500, detail=f"缓存预热失败: {str(e)}")
@@ -606,13 +609,13 @@ async def get_system_config(
                 "metrics_retention_days": config.get('monitoring.metrics_retention_days', 30)
             }
         }
-        
+
         return APIResponse(
             success=True,
             data=current_config,
             message="系统配置获取成功"
         )
-        
+
     except Exception as e:
         logger.error(f"获取系统配置失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取系统配置失败: {str(e)}")
@@ -626,13 +629,13 @@ async def update_system_config(
     try:
         # TODO: 实现配置更新逻辑
         # 这里应该验证配置的有效性并更新到配置文件或数据库
-        
+
         return APIResponse(
             success=True,
             data={"updated_keys": list(config_data.keys())},
             message="系统配置更新成功"
         )
-        
+
     except Exception as e:
         logger.error(f"更新系统配置失败: {e}")
         raise HTTPException(status_code=500, detail=f"更新系统配置失败: {str(e)}")

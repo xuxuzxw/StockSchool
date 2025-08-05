@@ -1,32 +1,39 @@
+import asyncio
+import os
+import sys
+from datetime import datetime, timedelta
+
 #!/usr/bin/env python3
 """
 简单测试告警引擎功能
 """
 
-import sys
-import os
-import asyncio
-from datetime import datetime, timedelta
 
 # 添加项目路径
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+
 async def test_alert_engine():
     """测试告警引擎基本功能"""
     print("🚀 开始测试告警引擎...")
-    
+
     try:
         # 测试导入
         from src.monitoring.alert_engine import (
-            AlertRule, AlertEvent, AlertEngine, AlertSuppressionManager,
-            AlertLevel, AlertStatus
+            AlertEngine,
+            AlertEvent,
+            AlertLevel,
+            AlertRule,
+            AlertStatus,
+            AlertSuppressionManager,
         )
+
         print("✅ 告警引擎模块导入成功")
-        
+
         # 创建告警引擎
         engine = AlertEngine()
         print("✅ 告警引擎创建成功")
-        
+
         # 创建测试规则
         rule = AlertRule(
             rule_id="test_cpu",
@@ -35,31 +42,31 @@ async def test_alert_engine():
             metric_name="cpu_usage",
             threshold=80.0,
             condition=">",
-            severity=AlertLevel.WARNING
+            severity=AlertLevel.WARNING,
         )
-        
+
         # 添加规则
         await engine.add_rule(rule)
         print("✅ 告警规则添加成功")
-        
+
         # 测试规则评估
         result = rule.evaluate(85.0)  # 超过阈值
         assert result is True, "规则评估应该返回True"
         print("✅ 规则评估测试通过")
-        
+
         result = rule.evaluate(75.0)  # 未超过阈值
         assert result is False, "规则评估应该返回False"
         print("✅ 规则评估测试通过")
-        
+
         # 测试告警抑制
         suppression = AlertSuppressionManager()
         should_suppress = suppression.should_suppress(rule.rule_id)
         assert should_suppress is False, "首次告警不应该被抑制"
         print("✅ 告警抑制测试通过")
-        
+
         print("🎉 告警引擎基本功能测试完成！")
         return True
-        
+
     except ImportError as e:
         print(f"❌ 模块导入失败: {e}")
         return False
@@ -67,25 +74,25 @@ async def test_alert_engine():
         print(f"❌ 测试失败: {e}")
         return False
 
+
 async def test_alerts_module():
     """测试alerts模块"""
     print("\n🚀 开始测试alerts模块...")
-    
+
     try:
-        from src.monitoring.alerts import (
-            AlertSeverity, AlertStatus, AlertType, AlertRule
-        )
+        from src.monitoring.alerts import AlertRule, AlertSeverity, AlertStatus, AlertType
+
         print("✅ alerts模块导入成功")
-        
+
         # 测试枚举
         assert AlertSeverity.WARNING.value == "WARNING"
         assert AlertStatus.ACTIVE.value == "ACTIVE"
         assert AlertType.SYSTEM.value == "SYSTEM"
         print("✅ 枚举类型测试通过")
-        
+
         print("🎉 alerts模块测试完成！")
         return True
-        
+
     except ImportError as e:
         print(f"❌ 模块导入失败: {e}")
         return False
@@ -93,17 +100,18 @@ async def test_alerts_module():
         print(f"❌ 测试失败: {e}")
         return False
 
+
 def test_file_structure():
     """测试文件结构"""
     print("\n🚀 检查告警系统文件结构...")
-    
+
     required_files = [
-        'src/monitoring/alert_engine.py',
-        'src/monitoring/alerts.py',
-        'src/tests/test_alert_engine.py',
-        'src/tests/test_alerts.py'
+        "src/monitoring/alert_engine.py",
+        "src/monitoring/alerts.py",
+        "src/tests/test_alert_engine.py",
+        "src/tests/test_alerts.py",
     ]
-    
+
     all_exist = True
     for file_path in required_files:
         if os.path.exists(file_path):
@@ -111,24 +119,25 @@ def test_file_structure():
         else:
             print(f"❌ {file_path} 不存在")
             all_exist = False
-    
+
     return all_exist
+
 
 async def main():
     """主测试函数"""
     print("=" * 60)
     print("告警规则引擎和通知系统测试")
     print("=" * 60)
-    
+
     tests = [
         ("文件结构检查", test_file_structure),
         ("alerts模块测试", test_alerts_module),
-        ("告警引擎测试", test_alert_engine)
+        ("告警引擎测试", test_alert_engine),
     ]
-    
+
     passed = 0
     total = len(tests)
-    
+
     for name, test_func in tests:
         print(f"\n📋 执行测试: {name}")
         try:
@@ -136,7 +145,7 @@ async def main():
                 result = await test_func()
             else:
                 result = test_func()
-            
+
             if result:
                 passed += 1
                 print(f"✅ {name} 通过")
@@ -144,9 +153,9 @@ async def main():
                 print(f"❌ {name} 失败")
         except Exception as e:
             print(f"❌ {name} 异常: {e}")
-    
+
     print(f"\n📊 测试结果: {passed}/{total} 个测试通过")
-    
+
     if passed == total:
         print("\n🎉 告警系统测试全部通过！")
         print("\n📝 任务8完成状态:")
@@ -159,6 +168,7 @@ async def main():
     else:
         print("\n❌ 部分测试失败，需要检查实现")
         return False
+
 
 if __name__ == "__main__":
     success = asyncio.run(main())

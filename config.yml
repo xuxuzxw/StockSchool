@@ -156,47 +156,7 @@ quality_params:
   orphan_threshold: 0.05  # 孤儿数据阈值
     # ... 其他LGBM参数
 
-# 数据同步参数
-data_sync_params:
-  batch_size: 1000
-  retry_times: 3
-  retry_delay: 1  # 秒
-  max_workers: 4
-  start_year: 2020  # 交易日历开始年份
-  max_days: 30  # 日线数据最大更新天数
-  sleep_interval: 0.3  # API调用间隔(秒)
-  
-  # 行业数据同步参数
-  industry_batch_size: 500  # 行业数据批次大小
-  industry_sleep_interval: 0.3  # 行业数据API调用间隔
-  
-  # 财务数据同步参数
-  financial_data:
-    start_date: "20200101"  # 财务数据开始日期
-    batch_size: 100  # 财务数据批次大小
-    sleep_interval: 0.5  # 财务数据API调用间隔
-    
-  # 指标数据同步参数
-  indicator_data:
-    start_date: "20200101"  # 指标数据开始日期
-    batch_size: 500  # 指标数据批次大小
-    sleep_interval: 0.2  # 指标数据API调用间隔
-    
-  # 情绪数据同步参数
-  sentiment_data:
-    start_date: "20200101"  # 情绪数据开始日期
-    sleep_interval: 1.0  # 情绪数据API调用间隔
-    
-  # 资金流向数据同步参数
-  fund_flow_data:
-    start_date: "20200101"  # 资金流向数据开始日期
-    batch_size: 100  # 资金流向数据批次大小
-    sleep_interval: 1.0  # 资金流向数据API调用间隔
-    
-  # 北向资金数据同步参数
-  north_money_data:
-    start_date: "20200101"  # 北向资金数据开始日期
-    sleep_interval: 2.0  # 北向资金数据API调用间隔
+# 数据同步配置已迁移到config/base.yml中的data_sources配置节
 
 # 监控告警参数
 monitoring_params:

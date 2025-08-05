@@ -1,28 +1,19 @@
-"""AI策略系统API路由
-
-提供AI策略系统的RESTful API接口，包括：
-- 模型管理API
-- 预测服务API
-- 因子权重API
-- 股票评分API
-"""
-
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, HTTPException, Query, Body
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from ..ai.strategy import (
     AIModelManager,
-    FactorWeightEngine, 
-    StockScoringEngine,
-    PredictionService,
-    ModelExplainer,
     BacktestEngine,
+    FactorWeightEngine,
+    ModelExplainer,
+    PredictionService,
+    StockScoringEngine,
     StrategyCustomizer
 )
-from ..ai.strategy.prediction_service import PredictionRequest, BatchPredictionResult
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +123,7 @@ async def get_models(
             model_name=model_name,
             limit=limit
         )
-        
+
         # 过滤活跃模型
         if is_active is not None:
             if is_active:
@@ -150,13 +141,13 @@ async def get_models(
                     if not active_model or active_model.version != model.version:
                         filtered_models.append(model)
                 models = filtered_models
-        
+
         model_responses = []
         for model in models:
             # 检查是否为活跃模型
             active_model = model_manager.get_active_model(model.model_name)
             is_active_model = active_model and active_model.version == model.version
-            
+
             model_responses.append(ModelVersionResponse(
                 model_name=model.model_name,
                 version=model.version,
@@ -166,12 +157,12 @@ async def get_models(
                 created_at=model.created_at.isoformat(),
                 file_path=model.file_path
             ))
-        
+
         return ModelListResponse(
             models=model_responses,
             total=len(model_responses)
         )
-        
+
     except Exception as e:
         logger.error(f"获取模型列表失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取模型列表失败: {str(e)}")
@@ -183,7 +174,7 @@ async def get_active_model(model_name: str):
         active_model = model_manager.get_active_model(model_name)
         if not active_model:
             raise HTTPException(status_code=404, detail=f"没有找到活跃模型: {model_name}")
-        
+
         return ModelVersionResponse(
             model_name=active_model.model_name,
             version=active_model.version,
@@ -193,7 +184,7 @@ async def get_active_model(model_name: str):
             created_at=active_model.created_at.isoformat(),
             file_path=active_model.file_path
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -207,12 +198,12 @@ async def deploy_model(model_name: str, version: str):
         success = model_manager.deploy_model(model_name, version)
         if not success:
             raise HTTPException(status_code=400, detail=f"模型部署失败: {model_name} v{version}")
-        
+
         # 清除预测服务缓存
         prediction_service.reload_model(model_name, version)
-        
+
         return {"message": f"模型部署成功: {model_name} v{version}"}
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -226,12 +217,12 @@ async def delete_model_version(model_name: str, version: str):
         success = model_manager.delete_model_version(model_name, version)
         if not success:
             raise HTTPException(status_code=400, detail=f"模型删除失败: {model_name} v{version}")
-        
+
         # 清除预测服务缓存
         prediction_service.reload_model(model_name, version)
-        
+
         return {"message": f"模型删除成功: {model_name} v{version}"}
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -247,7 +238,7 @@ async def predict_stocks(request: PredictionRequestModel):
         # 验证股票代码数量
         if len(request.stock_codes) > 1000:
             raise HTTPException(status_code=400, detail="股票代码数量不能超过1000个")
-        
+
         # 创建预测请求
         prediction_request = PredictionRequest(
             stock_codes=request.stock_codes,
@@ -258,10 +249,10 @@ async def predict_stocks(request: PredictionRequestModel):
             return_factors=request.return_factors,
             cache_ttl=request.cache_ttl
         )
-        
+
         # 执行预测
         result = prediction_service.predict(prediction_request)
-        
+
         # 转换结果格式
         prediction_results = []
         for pred in result.predictions:
@@ -275,7 +266,7 @@ async def predict_stocks(request: PredictionRequestModel):
                 prediction_date=pred.prediction_date,
                 model_info=pred.model_info
             ))
-        
+
         return BatchPredictionResponse(
             request_id=result.request_id,
             predictions=prediction_results,
@@ -286,7 +277,7 @@ async def predict_stocks(request: PredictionRequestModel):
             status=result.status,
             error_message=result.error_message
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -306,23 +297,23 @@ async def get_prediction_history(
             model_name=model_name,
             days=days
         )
-        
+
         if history_df.empty:
             return {"history": [], "total": 0}
-        
+
         # 转换为字典列表
         history_list = history_df.to_dict('records')
-        
+
         # 转换日期格式
         for record in history_list:
             if 'prediction_date' in record and record['prediction_date']:
                 record['prediction_date'] = record['prediction_date'].strftime('%Y-%m-%d')
-        
+
         return {
             "history": history_list,
             "total": len(history_list)
         }
-        
+
     except Exception as e:
         logger.error(f"获取预测历史失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取预测历史失败: {str(e)}")
@@ -335,7 +326,7 @@ async def get_prediction_performance(
     """获取预测性能统计"""
     try:
         stats = prediction_service.get_performance_stats(model_name, days)
-        
+
         return PerformanceStatsResponse(
             total_requests=stats.get('total_requests', 0),
             avg_processing_time=stats.get('avg_processing_time', 0),
@@ -343,7 +334,7 @@ async def get_prediction_performance(
             error_rate=stats.get('error_rate', 0),
             period_days=stats.get('period_days', days)
         )
-        
+
     except Exception as e:
         logger.error(f"获取性能统计失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取性能统计失败: {str(e)}")
@@ -359,7 +350,7 @@ async def clear_prediction_cache(
             "message": f"缓存清理完成",
             "cleared_count": cleared_count
         }
-        
+
     except Exception as e:
         logger.error(f"清理缓存失败: {e}")
         raise HTTPException(status_code=500, detail=f"清理缓存失败: {str(e)}")
@@ -378,11 +369,11 @@ async def get_factor_weights(
             model_name=model_name,
             model_version=model_version
         )
-        
+
         # 过滤因子
         if factor_names:
             weights = [w for w in weights if w.factor_name in factor_names]
-        
+
         weight_responses = []
         for weight in weights:
             weight_responses.append(FactorWeightResponse(
@@ -394,9 +385,9 @@ async def get_factor_weights(
                 stability_score=weight.stability_score,
                 updated_at=weight.updated_at.isoformat()
             ))
-        
+
         return weight_responses
-        
+
     except Exception as e:
         logger.error(f"获取因子权重失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取因子权重失败: {str(e)}")
@@ -421,12 +412,12 @@ async def update_factor_weights(
                 model_name=model_name,
                 model_version=model_version
             )
-        
+
         if not success:
             raise HTTPException(status_code=400, detail="因子权重更新失败")
-        
+
         return {"message": "因子权重更新成功"}
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -446,25 +437,25 @@ async def get_factor_weight_history(
             factor_name=factor_name,
             days=days
         )
-        
+
         if history_df.empty:
             return {"history": [], "total": 0}
-        
+
         # 转换为字典列表
         history_list = history_df.to_dict('records')
-        
+
         # 转换日期格式
         for record in history_list:
             if 'date' in record and record['date']:
                 record['date'] = record['date'].strftime('%Y-%m-%d')
             if 'created_at' in record and record['created_at']:
                 record['created_at'] = record['created_at'].isoformat()
-        
+
         return {
             "history": history_list,
             "total": len(history_list)
         }
-        
+
     except Exception as e:
         logger.error(f"获取因子权重历史失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取因子权重历史失败: {str(e)}")
@@ -486,26 +477,26 @@ async def get_stock_scores(
         # 设置默认日期
         if score_date is None:
             score_date = datetime.now().strftime('%Y-%m-%d')
-        
+
         scores = stock_scoring_engine.get_stock_scores(
             model_name=model_name,
             model_version=model_version,
             score_date=score_date
         )
-        
+
         # 过滤条件
         if stock_codes:
             scores = [s for s in scores if s.stock_code in stock_codes]
-        
+
         if min_score is not None:
             scores = [s for s in scores if s.score >= min_score]
-        
+
         if industry_code:
             scores = [s for s in scores if s.industry_code == industry_code]
-        
+
         # 限制数量
         scores = scores[:limit]
-        
+
         score_responses = []
         for score in scores:
             score_responses.append(StockScoreResponse(
@@ -520,9 +511,9 @@ async def get_stock_scores(
                 model_version=score.model_version,
                 score_date=score.score_date.strftime('%Y-%m-%d')
             ))
-        
+
         return score_responses
-        
+
     except Exception as e:
         logger.error(f"获取股票评分失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取股票评分失败: {str(e)}")
@@ -540,7 +531,7 @@ async def get_top_stocks(
         # 设置默认日期
         if score_date is None:
             score_date = datetime.now().strftime('%Y-%m-%d')
-        
+
         top_stocks = stock_scoring_engine.get_top_stocks(
             model_name=model_name,
             model_version=model_version,
@@ -548,7 +539,7 @@ async def get_top_stocks(
             top_n=top_n,
             industry_neutral=industry_neutral
         )
-        
+
         stock_responses = []
         for stock in top_stocks:
             stock_responses.append(StockScoreResponse(
@@ -563,9 +554,9 @@ async def get_top_stocks(
                 model_version=stock.model_version,
                 score_date=stock.score_date.strftime('%Y-%m-%d')
             ))
-        
+
         return stock_responses
-        
+
     except Exception as e:
         logger.error(f"获取高评分股票失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取高评分股票失败: {str(e)}")
@@ -581,18 +572,18 @@ async def update_stock_scores(
         # 设置默认日期
         if score_date is None:
             score_date = datetime.now().strftime('%Y-%m-%d')
-        
+
         success = stock_scoring_engine.update_daily_scores(
             model_name=model_name,
             model_version=model_version,
             score_date=score_date
         )
-        
+
         if not success:
             raise HTTPException(status_code=400, detail="股票评分更新失败")
-        
+
         return {"message": f"股票评分更新成功: {score_date}"}
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -616,15 +607,15 @@ async def health_check():
                 "prediction_service": "healthy"
             }
         }
-        
+
         # 检查缓存状态
         if prediction_service.cache_enabled:
             status["services"]["redis_cache"] = "healthy"
         else:
             status["services"]["redis_cache"] = "disabled"
-        
+
         return status
-        
+
     except Exception as e:
         logger.error(f"健康检查失败: {e}")
         return {
@@ -662,7 +653,7 @@ async def get_system_info():
                 "strategy": "/ai-strategy/strategy"
             }
         }
-        
+
     except Exception as e:
         logger.error(f"获取系统信息失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取系统信息失败: {str(e)}")
@@ -684,7 +675,7 @@ async def explain_prediction(
             model_version=model_version,
             method=method
         )
-        
+
         if explanation:
             return {
                 "message": "解释生成成功",
@@ -692,7 +683,7 @@ async def explain_prediction(
             }
         else:
             raise HTTPException(status_code=404, detail="无法生成解释")
-            
+
     except Exception as e:
         logger.error(f"解释模型预测失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -710,7 +701,7 @@ async def get_global_explanation(
             model_version=model_version,
             method=method
         )
-        
+
         if explanation:
             return {
                 "message": "获取成功",
@@ -718,7 +709,7 @@ async def get_global_explanation(
             }
         else:
             raise HTTPException(status_code=404, detail="全局解释不存在")
-            
+
     except Exception as e:
         logger.error(f"获取全局解释失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -736,7 +727,7 @@ async def get_explanation_history(
             model_name=model_name,
             limit=limit
         )
-        
+
         return {
             "message": "获取成功",
             "data": {
@@ -744,7 +735,7 @@ async def get_explanation_history(
                 "total": len(explanations)
             }
         }
-        
+
     except Exception as e:
         logger.error(f"获取解释历史失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -757,7 +748,7 @@ async def run_backtest(config_data: dict = Body(..., description="回测配置")
     try:
         # 运行回测
         result = backtest_engine.run_backtest(config_data)
-        
+
         if result:
             return {
                 "message": "回测完成",
@@ -765,7 +756,7 @@ async def run_backtest(config_data: dict = Body(..., description="回测配置")
             }
         else:
             raise HTTPException(status_code=500, detail="回测失败")
-            
+
     except Exception as e:
         logger.error(f"运行回测失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -781,7 +772,7 @@ async def get_backtest_results(
             strategy_name=strategy_name,
             limit=limit
         )
-        
+
         return {
             "message": "获取成功",
             "data": {
@@ -789,7 +780,7 @@ async def get_backtest_results(
                 "total": len(results)
             }
         }
-        
+
     except Exception as e:
         logger.error(f"获取回测结果失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -799,7 +790,7 @@ async def compare_strategies(strategy_ids: List[str] = Body(..., description="�
     """比较策略"""
     try:
         comparison = backtest_engine.compare_strategies(strategy_ids)
-        
+
         if comparison:
             return {
                 "message": "比较完成",
@@ -807,7 +798,7 @@ async def compare_strategies(strategy_ids: List[str] = Body(..., description="�
             }
         else:
             raise HTTPException(status_code=404, detail="策略不存在")
-            
+
     except Exception as e:
         logger.error(f"比较策略失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -825,7 +816,7 @@ async def create_risk_profile(
             user_id=user_id,
             profile_data=profile_data
         )
-        
+
         if risk_profile:
             return {
                 "message": "风险画像创建成功",
@@ -833,7 +824,7 @@ async def create_risk_profile(
             }
         else:
             raise HTTPException(status_code=400, detail="创建风险画像失败")
-            
+
     except Exception as e:
         logger.error(f"创建风险画像失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -843,7 +834,7 @@ async def get_risk_profile(user_id: str):
     """获取用户风险画像"""
     try:
         risk_profile = strategy_customizer.get_user_risk_profile(user_id)
-        
+
         if risk_profile:
             return {
                 "message": "获取成功",
@@ -851,7 +842,7 @@ async def get_risk_profile(user_id: str):
             }
         else:
             raise HTTPException(status_code=404, detail="风险画像不存在")
-            
+
     except Exception as e:
         logger.error(f"获取风险画像失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -861,7 +852,7 @@ async def recommend_strategies(user_id: str = Body(..., description="用户ID"))
     """推荐策略"""
     try:
         recommendation = strategy_customizer.recommend_strategies(user_id)
-        
+
         if recommendation:
             return {
                 "message": "推荐生成成功",
@@ -869,7 +860,7 @@ async def recommend_strategies(user_id: str = Body(..., description="用户ID"))
             }
         else:
             raise HTTPException(status_code=404, detail="无法生成推荐")
-            
+
     except Exception as e:
         logger.error(f"推荐策略失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -879,7 +870,7 @@ async def get_strategy_templates(category: Optional[str] = Query(None, descripti
     """获取策略模板"""
     try:
         templates = strategy_customizer.get_strategy_templates(category=category)
-        
+
         return {
             "message": "获取成功",
             "data": {
@@ -887,7 +878,7 @@ async def get_strategy_templates(category: Optional[str] = Query(None, descripti
                 "total": len(templates)
             }
         }
-        
+
     except Exception as e:
         logger.error(f"获取策略模板失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -909,7 +900,7 @@ async def create_user_strategy(
             custom_config=custom_config,
             investment_amount=investment_amount
         )
-        
+
         if user_strategy:
             return {
                 "message": "策略创建成功",
@@ -917,7 +908,7 @@ async def create_user_strategy(
             }
         else:
             raise HTTPException(status_code=400, detail="创建策略失败")
-            
+
     except Exception as e:
         logger.error(f"创建用户策略失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -933,7 +924,7 @@ async def get_user_strategies(
             user_id=user_id,
             status=status
         )
-        
+
         return {
             "message": "获取成功",
             "data": {
@@ -941,7 +932,7 @@ async def get_user_strategies(
                 "total": len(strategies)
             }
         }
-        
+
     except Exception as e:
         logger.error(f"获取用户策略失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -951,7 +942,7 @@ async def backtest_user_strategy(strategy_id: str):
     """回测用户策略"""
     try:
         result = strategy_customizer.backtest_user_strategy(strategy_id)
-        
+
         if result:
             return {
                 "message": "回测完成",
@@ -959,7 +950,7 @@ async def backtest_user_strategy(strategy_id: str):
             }
         else:
             raise HTTPException(status_code=404, detail="策略不存在或回测失败")
-            
+
     except Exception as e:
         logger.error(f"回测用户策略失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))

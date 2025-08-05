@@ -27,6 +27,9 @@ StockSchool是一个基于Python的量化投研系统，集成了数据获取、
 - **技术因子**: 30+种技术指标，包括动量、趋势、波动率、成交量因子
 - **基本面因子**: 盈利能力、成长性、杠杆、流动性等财务指标
 - **情绪面因子**: 资金流向、关注度、情绪强度等市场情绪指标
+  - **完整测试覆盖**: 情绪因子引擎已通过36个单元测试，包括资金流向、关注度、情绪强度和事件类因子
+  - **抽象方法实现**: 所有因子计算器都正确实现了抽象基类的必需方法
+  - **兼容性修复**: 修复了pandas pct_change方法的弃用警告，确保代码向前兼容
 - **因子预处理**: 去极值、标准化、中性化等预处理功能
 - **高性能计算**: 支持批量处理和并行计算
 - **统一架构**: 基于抽象基类的可扩展因子计算框架
@@ -47,7 +50,14 @@ StockSchool是一个基于Python的量化投研系统，集成了数据获取、
 - **批量预测**: 支持历史时间段的批量预测和回测
 
 ### 统一配置管理系统
-- **多环境支持**: 支持开发、测试、生产等多环境配置
+- **多环境支持**: 支持开发(development)、测试(testing)、生产(production)等多环境配置
+- **分层配置架构**: 
+  - `config/base.yml` - 基础配置
+  - `config/factor_config.yaml` - 因子计算专用配置
+  - `config/monitoring.yaml` - 监控告警配置
+  - `config/development.yml` - 开发环境配置
+  - `config/production.yml` - 生产环境配置
+  - `config/testing.yml` - 测试环境配置
 - **配置热更新**: 支持运行时配置更新，无需重启服务
 - **配置验证**: 内置配置验证机制，确保配置正确性
 - **变更历史**: 记录配置变更历史，支持回滚操作
@@ -88,19 +98,66 @@ StockSchool是一个基于Python的量化投研系统，集成了数据获取、
 - **监控告警**: 实时性能监控和多渠道告警系统
 - **Web API**: 基于FastAPI的RESTful API接口
 - **高度可配置**: 所有关键参数支持配置文件动态加载
+- **代码质量管理**: 渐进式标准化策略，自动化语法检查，知识图谱代码分析
+
+
+## 🚀 第二阶段优化 (v2.0.0)
+
+### 性能优化
+- **并行计算引擎**: 多进程并行因子计算，支持CPU/GPU加速
+- **智能缓存系统**: Redis+内存多级缓存，LRU淘汰策略
+- **负载均衡**: Nginx反向代理，支持多实例部署
+- **批处理优化**: 智能批量大小计算，内存自适应管理
+
+### 监控增强
+- **实时监控**: Prometheus+Grafana监控栈
+- **数据质量监控**: 实时数据质量检查和告警
+- **性能仪表板**: 可视化系统性能指标
+- **智能告警**: 多渠道告警通知系统
+
+### 架构优化
+- **设计模式**: 依赖注入、观察者模式、工厂模式
+- **模块化重构**: 单一职责原则，降低耦合度
+- **容错机制**: 重试策略、熔断降级、健康检查
+- **配置管理**: 集中式配置管理，支持热更新
+
+### 部署优化
+- **容器化部署**: Docker+Docker Compose完整方案
+- **负载均衡**: 多实例负载均衡配置
+- **自动扩展**: 基于CPU/内存的自动扩展
+- **健康检查**: 多层次健康检查和自愈机制
+
+### 快速开始 (第二阶段)
+```bash
+# 使用Docker快速部署
+docker-compose -f docker-compose.stage2.yml up -d
+
+# 运行性能测试
+python scripts/performance_test_runner.py
+
+# 查看监控仪表板
+open http://localhost:3000
+```
+
+### 配置文件
+- `stage2_optimization_config.yml` - 优化配置
+- `docker-compose.stage2.yml` - 容器编排
+- `Dockerfile.stage2` - 生产镜像
+- `requirements-stage2.txt` - 优化依赖
 
 ## 技术栈
 
 - **后端框架**: FastAPI
-- **数据库**: MySQL/SQLite
+- **数据库**: PostgreSQL 12+ (主数据库) / SQLite (降级方案)
 - **数据源**: Tushare Pro API, AkShare
 - **机器学习**: scikit-learn, XGBoost, LightGBM, SHAP
 - **数据处理**: pandas, numpy
 - **技术指标**: talib, 自研指标库
-- **配置管理**: PyYAML
-- **任务调度**: Celery分布式任务队列
+- **配置管理**: PyYAML + 热更新机制
+- **任务调度**: Celery分布式任务队列 + schedule库
 - **日志系统**: Python logging
 - **重试机制**: 自研重试装饰器
+- **代码质量**: 自动化语法检查 + 知识图谱分析
 
 ## 硬件加速要求
 - **GPU支持**：需安装CUDA 11.7+驱动
@@ -247,33 +304,67 @@ StockSchool/
 pip install -r requirements.txt
 ```
 
-### 3. 配置文件
+### 3. 环境变量配置
 
-复制并修改配置文件：
+StockSchool支持通过环境变量进行配置，优先级高于配置文件：
 
 ```bash
-cp config.yaml.example config.yaml
+# 必需环境变量
+export TUSHARE_TOKEN="your_tushare_token"  # Tushare API token
+
+# 可选环境变量
+export DATABASE_URL="postgresql://user:password@localhost:5432/stockschool"  # 数据库连接
+export REDIS_URL="redis://localhost:6379/0"  # Redis连接
+export CELERY_BROKER_URL="redis://localhost:6379/0"  # Celery消息队列
+export LOG_LEVEL="INFO"  # 日志级别
 ```
 
-主要配置项说明：
+Windows系统：
+```cmd
+set TUSHARE_TOKEN=your_tushare_token
+set DATABASE_URL=postgresql://user:password@localhost:5432/stockschool
+```
+
+### 4. 配置文件
+
+StockSchool使用多个配置文件进行系统配置：
+
+**主要配置文件：**
+- `config.yml` - 主配置文件，包含数据源、数据库、AI模型等配置
+- `config/data_sync.yaml` - 数据同步专用配置
+- `config/monitoring.yaml` - 监控和告警配置
+
+**配置文件结构示例：**
 
 ```yaml
-# Tushare配置
-tushare:
-  token: "your_tushare_token"  # 替换为你的Tushare token
+# 数据源配置
+data_sync_params:
+  tushare:
+    enabled: true
+    token: ${TUSHARE_TOKEN}  # 使用环境变量
+    api_limit: 200
+    retry_times: 3
+    retry_delay: 1
+  
+  akshare:
+    enabled: true
+    api_limit: 100
+    retry_times: 3
+    retry_delay: 1
 
 # 数据库配置
 database:
-  path: "data/stock_data.db"
+  url: postgresql://user:password@localhost:5432/stockschool
 
-# API配置
-api_params:
-  host: "0.0.0.0"
-  port: 8000
-  reload: true
-  log_level: "info"
-
-# 其他参数配置...
+# AI模型配置
+ai_model:
+  enabled: true
+  models: ['random_forest', 'xgboost', 'lightgbm']
+  
+# 监控配置
+monitoring:
+  enabled: true
+  prometheus_url: http://localhost:9090
 ```
 
 ### 4. 数据库初始化
@@ -737,6 +828,13 @@ GET /api/monitoring/alerts
 详细配置说明请参考`log.md`文件。
 
 ## 最近更新
+
+- **v1.1.7 代码质量验证阶段** (2025年1月):
+  - **语法验证**: 完成184个Python文件的语法检查，修复2个语法错误
+  - **依赖管理**: 安装缺失的schedule库，确保任务调度功能完整
+  - **代码查重**: 通过知识图谱识别重复代码，优化ModelTrainingPipeline相关类结构
+  - **渐进式标准化**: 采用"先实践后标准"策略，基于实际开发经验制定规范
+  - **测试优化**: 清理测试文件中的调试信息，保留必要的验证输出
 
 - **v1.1.6 全流程实测阶段**：
   - **AI模型模块 (`ai_model.py`)**：实现了AI模型的训练、预测和管理。

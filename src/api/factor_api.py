@@ -1,29 +1,42 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-因子计算API接口
-提供因子查询、计算触发、有效性分析等REST API服务
-"""
-
-from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
-from typing import List, Dict, Any, Optional
 from datetime import date, datetime
-from pydantic import BaseModel, Field, validator
 from enum import Enum
-import asyncio
-import logging
 
-from src.api.dependencies import (
-    get_factor_service, get_calculation_service, get_standardizer,
-    get_effectiveness_analyzer, verify_token, require_permission,
-    require_healthy_database
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from pydantic import BaseModel, Field, validator
+
+from src.api.decorators import (  # !/usr/bin/env python3; -*- coding: utf-8 -*-
+    API服务,
+    因子计算API接口,
+    提供因子查询、计算触发、有效性分析等REST,
+    Any,
+    Dict,
+    FactorCalculationService,
+    FactorEffectivenessAnalyzer,
+    FactorService,
+    FactorStandardizer,
+    List,
+    Optional,
+    """,
+    asyncio,
+    from,
+    get_calculation_service,
+    get_effectiveness_analyzer,
+    get_factor_service,
+    get_standardizer,
+    import,
+    logging,
+    require_healthy_database,
+    require_permission,
+    src.api.dependencies,
+    src.compute.factor_effectiveness_analyzer,
+    src.compute.factor_standardizer,
+    src.services.factor_service,
+    typing,
+    verify_token,
 )
-from src.api.decorators import (
+
     api_exception_handler, api_response_builder, log_api_call, ResponseBuilder
 )
-from src.services.factor_service import FactorService, FactorCalculationService
-from src.compute.factor_standardizer import FactorStandardizer
-from src.compute.factor_effectiveness_analyzer import FactorEffectivenessAnalyzer
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -63,10 +76,10 @@ class FactorQueryRequest(BaseModel):
     start_date: Optional[date] = Field(None, description="开始日期")
     end_date: Optional[date] = Field(None, description="结束日期")
     standardized: bool = Field(False, description="是否返回标准化值")
-    
+
     @validator('ts_codes')
     def validate_ts_codes(cls, v):
-        if not v:
+        """方法描述"""
             raise ValueError('股票代码列表不能为空')
         for code in v:
             if not code or len(code) != 9 or '.' not in code:
@@ -83,10 +96,10 @@ class FactorCalculationRequest(BaseModel):
     end_date: Optional[date] = Field(None, description="结束日期")
     force_recalculate: bool = Field(False, description="是否强制重新计算")
     priority: str = Field("normal", description="任务优先级")
-    
+
     @validator('priority')
     def validate_priority(cls, v):
-        if v not in ['low', 'normal', 'high', 'urgent']:
+        """方法描述"""
             raise ValueError('优先级必须是: low, normal, high, urgent')
         return v
 
@@ -97,10 +110,10 @@ class FactorStandardizationRequest(BaseModel):
     calculation_date: date = Field(..., description="计算日期")
     industry_neutral: bool = Field(False, description="是否行业中性化")
     outlier_method: str = Field("clip", description="异常值处理方法")
-    
+
     @validator('outlier_method')
     def validate_outlier_method(cls, v):
-        if v not in ['clip', 'winsorize', 'remove']:
+        """方法描述"""
             raise ValueError('异常值处理方法必须是: clip, winsorize, remove')
         return v
 
@@ -148,7 +161,7 @@ async def get_factors(
 ):
     """
     获取因子数据
-    
+
     支持多种查询条件：
     - 按股票代码查询
     - 按因子名称查询
@@ -160,7 +173,7 @@ async def get_factors(
     factor_types = None
     if request.factor_types:
         factor_types = [ft.value for ft in request.factor_types]
-    
+
     # 调用服务层
     result_data = factor_service.query_factors(
         ts_codes=request.ts_codes,
@@ -170,7 +183,7 @@ async def get_factors(
         end_date=request.end_date,
         standardized=request.standardized
     )
-    
+
     return ResponseBuilder.success(
         data=result_data,
         message=f"成功获取{result_data['total_count']}条因子数据"
@@ -187,7 +200,7 @@ async def calculate_factors(
 ):
     """
     触发因子计算任务
-    
+
     支持多种计算模式：
     - 全市场计算
     - 指定股票计算
@@ -205,13 +218,13 @@ async def calculate_factors(
         'force_recalculate': request.force_recalculate,
         'priority': request.priority
     }
-    
+
     # 提交计算任务
     task_id = calculation_service.submit_calculation_request(request_data)
-    
+
     # 添加后台任务监控
     background_tasks.add_task(monitor_calculation_task, task_id)
-    
+
     return ResponseBuilder.success(
         data={
             "task_id": task_id,
@@ -230,10 +243,10 @@ async def get_calculation_task(
 ):
     """查询因子计算任务状态"""
     task_info = calculation_service.get_task_status(task_id)
-    
+
     if not task_info:
         raise HTTPException(status_code=404, detail="任务不存在")
-    
+
     task = CalculationTask(
         task_id=task_id,
         status=CalculationStatus(task_info['status']),
@@ -243,7 +256,7 @@ async def get_calculation_task(
         progress=task_info.get('progress', 0.0),
         message=task_info.get('message', '')
     )
-    
+
     return ResponseBuilder.success(
         data=task.dict(),
         message="任务状态查询成功"
@@ -256,7 +269,7 @@ async def standardize_factors(
 ):
     """
     对因子进行标准化处理
-    
+
     支持多种标准化方法：
     - Z-score标准化
     - 分位数标准化
@@ -267,7 +280,7 @@ async def standardize_factors(
     try:
         engine = get_db_engine()
         standardizer = FactorStandardizer(engine)
-        
+
         # 执行标准化
         result = standardizer.standardize_factors(
             factor_names=request.factor_names,
@@ -276,7 +289,7 @@ async def standardize_factors(
             industry_neutral=request.industry_neutral,
             outlier_method=request.outlier_method
         )
-        
+
         return APIResponse(
             success=True,
             data={
@@ -287,7 +300,7 @@ async def standardize_factors(
             },
             message=f"成功标准化{len(result)}个因子"
         )
-        
+
     except Exception as e:
         logger.error(f"因子标准化失败: {e}")
         raise HTTPException(status_code=500, detail=f"因子标准化失败: {str(e)}")
@@ -300,7 +313,7 @@ async def analyze_factor_effectiveness(
 ):
     """
     分析因子有效性
-    
+
     支持多种分析类型：
     - IC分析（信息系数）
     - IR分析（信息比率）
@@ -310,10 +323,10 @@ async def analyze_factor_effectiveness(
     try:
         engine = get_db_engine()
         analyzer = FactorEffectivenessAnalyzer(engine)
-        
+
         # 创建分析任务ID
         analysis_id = f"analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
+
         # 添加后台分析任务
         background_tasks.add_task(
             run_effectiveness_analysis,
@@ -321,7 +334,7 @@ async def analyze_factor_effectiveness(
             request,
             analysis_id
         )
-        
+
         return APIResponse(
             success=True,
             data={
@@ -333,7 +346,7 @@ async def analyze_factor_effectiveness(
             },
             message="因子有效性分析任务已提交"
         )
-        
+
     except Exception as e:
         logger.error(f"提交有效性分析失败: {e}")
         raise HTTPException(status_code=500, detail=f"提交分析任务失败: {str(e)}")
@@ -347,7 +360,7 @@ async def get_analysis_result(
     try:
         # TODO: 实现分析结果查询逻辑
         # 这里应该从数据库或缓存中查询分析结果
-        
+
         return APIResponse(
             success=True,
             data={
@@ -361,7 +374,7 @@ async def get_analysis_result(
             },
             message="分析结果查询成功"
         )
-        
+
     except Exception as e:
         logger.error(f"查询分析结果失败: {e}")
         raise HTTPException(status_code=500, detail=f"查询分析结果失败: {str(e)}")
@@ -373,7 +386,7 @@ async def get_factor_metadata(
 ):
     """
     获取因子元数据信息
-    
+
     包括：
     - 可用因子列表
     - 因子定义和计算公式
@@ -383,13 +396,13 @@ async def get_factor_metadata(
     try:
         factor_engine = get_factor_engine()
         metadata = factor_engine.get_factor_metadata(factor_type.value if factor_type else None)
-        
+
         return APIResponse(
             success=True,
             data=metadata,
             message="因子元数据获取成功"
         )
-        
+
     except Exception as e:
         logger.error(f"获取因子元数据失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取元数据失败: {str(e)}")
@@ -399,11 +412,11 @@ async def health_check():
     """API健康检查"""
     try:
         engine = get_db_engine()
-        
+
         # 检查数据库连接
         with engine.connect() as conn:
             conn.execute("SELECT 1")
-        
+
         return APIResponse(
             success=True,
             data={
@@ -413,7 +426,7 @@ async def health_check():
             },
             message="服务运行正常"
         )
-        
+
     except Exception as e:
         logger.error(f"健康检查失败: {e}")
         return APIResponse(
@@ -430,19 +443,19 @@ async def monitor_calculation_task(task_id: str):
     """监控计算任务进度"""
     try:
         manual_trigger = get_manual_trigger()
-        
+
         while True:
             task_info = manual_trigger.get_task_status(task_id)
             if not task_info:
                 break
-                
+
             status = task_info.get('status')
             if status in ['completed', 'failed']:
                 logger.info(f"任务 {task_id} 已完成，状态: {status}")
                 break
-                
+
             await asyncio.sleep(30)  # 每30秒检查一次
-            
+
     except Exception as e:
         logger.error(f"监控任务 {task_id} 失败: {e}")
 
@@ -454,7 +467,7 @@ async def run_effectiveness_analysis(
     """运行因子有效性分析"""
     try:
         results = {}
-        
+
         for analysis_type in request.analysis_types:
             if analysis_type == "ic":
                 ic_results = analyzer.calculate_ic(
@@ -464,7 +477,7 @@ async def run_effectiveness_analysis(
                     return_periods=request.return_periods
                 )
                 results["ic_analysis"] = ic_results
-                
+
             elif analysis_type == "ir":
                 ir_results = analyzer.calculate_ir(
                     factor_names=request.factor_names,
@@ -473,7 +486,7 @@ async def run_effectiveness_analysis(
                     return_periods=request.return_periods
                 )
                 results["ir_analysis"] = ir_results
-                
+
             elif analysis_type == "layered_backtest":
                 backtest_results = analyzer.layered_backtest(
                     factor_names=request.factor_names,
@@ -482,9 +495,9 @@ async def run_effectiveness_analysis(
                     layers=5
                 )
                 results["layered_backtest"] = backtest_results
-        
+
         # TODO: 将分析结果保存到数据库或缓存
         logger.info(f"分析任务 {analysis_id} 完成")
-        
+
     except Exception as e:
         logger.error(f"分析任务 {analysis_id} 失败: {e}")

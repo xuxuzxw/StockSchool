@@ -1,3 +1,13 @@
+import os
+import sys
+import tempfile
+from datetime import datetime, timedelta
+from unittest.mock import MagicMock, Mock
+
+import numpy as np
+import pandas as pd
+import pytest
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -6,14 +16,6 @@
 提供共享的测试fixtures和配置
 """
 
-import pytest
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-from unittest.mock import Mock, MagicMock
-import tempfile
-import os
-import sys
 
 # 添加项目根目录到Python路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -53,11 +55,11 @@ def sample_stock_data():
     """生成样本股票数据"""
     dates = pd.date_range('2024-01-01', periods=100, freq='D')
     np.random.seed(42)  # 确保可重现性
-    
+
     base_price = 100
     prices = base_price + np.random.randn(100).cumsum() * 2
     volumes = np.random.randint(1000, 10000, 100)
-    
+
     return pd.DataFrame({
         'ts_code': ['000001.SZ'] * 100,
         'trade_date': dates,
@@ -91,7 +93,7 @@ def sample_trade_calendar():
     dates = pd.date_range('2024-01-01', '2024-12-31', freq='D')
     # 排除周末
     trade_dates = [d for d in dates if d.weekday() < 5]
-    
+
     return pd.DataFrame({
         'cal_date': trade_dates,
         'is_open': [1] * len(trade_dates),
@@ -129,16 +131,16 @@ def sample_sentiment_data():
 def temp_database():
     """创建临时数据库"""
     import sqlite3
-    
+
     # 创建临时文件
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
     temp_file.close()
-    
+
     # 创建数据库连接
     conn = sqlite3.connect(temp_file.name)
-    
+
     # 创建基础表结构
-    conn.execute('''
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS stock_daily (
             ts_code TEXT,
             trade_date DATE,
@@ -149,9 +151,9 @@ def temp_database():
             volume INTEGER,
             PRIMARY KEY (ts_code, trade_date)
         )
-    ''')
-    
-    conn.execute('''
+    """)
+
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS sync_status (
             data_source TEXT,
             data_type TEXT,
@@ -159,12 +161,12 @@ def temp_database():
             sync_status TEXT,
             PRIMARY KEY (data_source, data_type)
         )
-    ''')
-    
+    """)
+
     conn.commit()
-    
+
     yield temp_file.name
-    
+
     # 清理
     conn.close()
     os.unlink(temp_file.name)
@@ -174,7 +176,7 @@ def temp_database():
 def mock_tushare_api():
     """模拟Tushare API"""
     api = Mock()
-    
+
     # 模拟常用API方法
     api.stock_basic.return_value = pd.DataFrame({
         'ts_code': ['000001.SZ', '000002.SZ'],
@@ -184,7 +186,7 @@ def mock_tushare_api():
         'industry': ['银行', '房地产'],
         'list_date': ['19910403', '19910129']
     })
-    
+
     api.daily.return_value = pd.DataFrame({
         'ts_code': ['000001.SZ'] * 5,
         'trade_date': ['20240101', '20240102', '20240103', '20240104', '20240105'],
@@ -194,7 +196,7 @@ def mock_tushare_api():
         'close': [10.1, 10.2, 10.3, 10.4, 10.5],
         'volume': [1000, 1100, 1200, 1300, 1400]
     })
-    
+
     return api
 
 
@@ -202,7 +204,7 @@ def mock_tushare_api():
 def mock_akshare_api():
     """模拟AkShare API"""
     api = Mock()
-    
+
     # 模拟情绪数据API
     api.stock_news_em.return_value = pd.DataFrame({
         'ts_code': ['000001.SZ', '000002.SZ'],
@@ -210,7 +212,7 @@ def mock_akshare_api():
         'sentiment_score': [0.6, -0.3],
         'news_volume': [20, 25]
     })
-    
+
     # 模拟热度排行API
     api.stock_hot_rank_em.return_value = pd.DataFrame({
         'ts_code': ['000001.SZ', '000002.SZ'],
@@ -218,35 +220,36 @@ def mock_akshare_api():
         'rank_position': [1, 2],
         'popularity_score': [95.8, 88.2]
     })
-    
+
     return api
 
 
 @pytest.fixture
 def performance_monitor():
     """性能监控fixture"""
-    import psutil
     import time
-    
+
+    import psutil
+
     class PerformanceMonitor:
-        def __init__(self):
+        """类描述"""
             self.start_time = None
             self.start_memory = None
-            
+
         def start(self):
-            self.start_time = time.time()
+            """方法描述"""
             self.start_memory = psutil.Process().memory_info().rss / 1024 / 1024  # MB
-            
+
         def stop(self):
-            end_time = time.time()
+            """方法描述"""
             end_memory = psutil.Process().memory_info().rss / 1024 / 1024  # MB
-            
+
             return {
                 'execution_time': end_time - self.start_time,
                 'memory_usage': end_memory - self.start_memory,
                 'peak_memory': end_memory
             }
-    
+
     return PerformanceMonitor()
 
 
@@ -260,14 +263,14 @@ def data_quality_samples():
             'volume': np.random.randint(1000, 5000, 10),
             'trade_date': pd.date_range('2024-01-01', periods=10)
         }),
-        
+
         'dirty_data': pd.DataFrame({
             'ts_code': ['000001.SZ'] * 10,
             'close': [100, np.nan, 102, -50, 104, 1000, np.nan, 107, 108, 109],  # 包含异常值和缺失值
             'volume': [1000, 1100, -500, 1300, 1400, 1500, 1600, 1700, 1800, 1900],  # 包含负数
             'trade_date': pd.date_range('2024-01-01', periods=10)
         }),
-        
+
         'incomplete_data': pd.DataFrame({
             'ts_code': ['000001.SZ'] * 5,
             'close': [100, 101, np.nan, np.nan, 104],  # 40%缺失
@@ -293,15 +296,15 @@ def pytest_collection_modifyitems(config, items):
     """根据条件跳过测试"""
     # 如果没有数据库连接，跳过数据库测试
     skip_database = pytest.mark.skip(reason="数据库连接不可用")
-    
+
     # 如果没有网络连接，跳过网络测试
     skip_network = pytest.mark.skip(reason="网络连接不可用")
-    
+
     for item in items:
         if "database" in item.keywords:
             # 这里可以添加数据库连接检查逻辑
             pass
-            
+
         if "network" in item.keywords:
             # 这里可以添加网络连接检查逻辑
             pass

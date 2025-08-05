@@ -1,11 +1,16 @@
 import time
 from functools import wraps
-from .config_loader import config
+from typing import Any, Callable, Optional
+
+from ..config.unified_config import config
+
 
 def idempotent_retry(max_retries=None):
-    def decorator(func):
+    """方法描述"""
+    def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
+            """方法描述"""
             if max_retries is None:
                 retries = config.get('utils_params.max_retries', 3)
             else:

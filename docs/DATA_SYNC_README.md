@@ -1,5 +1,6 @@
 # StockSchool 数据同步增强功能
 
+<!--
 ## 概述
 
 StockSchool 数据同步增强功能是一个完整的多数据源同步解决方案，实现了智能化、自动化的股票数据获取和管理。该功能包含四个核心模块：
@@ -8,7 +9,9 @@ StockSchool 数据同步增强功能是一个完整的多数据源同步解决�
 2. **申万行业分类管理** - 管理三级行业分类体系和股票行业归属
 3. **智能增量更新引擎** - 自动检测缺失数据并智能调度同步任务
 4. **统一数据同步管理** - 协调多数据源同步，提供统一管理界面
+-->
 
+<!--
 ## 核心特性
 
 ### 🎯 智能化
@@ -33,7 +36,9 @@ StockSchool 数据同步增强功能是一个完整的多数据源同步解决�
 - 数据质量评分和健康检查
 - 性能统计和趋势分析
 - 实时告警和异常通知
+-->
 
+<!--
 ## 快速开始
 
 ### 1. 环境准备
@@ -71,18 +76,24 @@ python demo_data_sync.py
 
 ```bash
 # 查看同步状态
-python src/data/sync_manager.py --mode status
+<del>python src/data/sync_manager.py --mode status</del> ~~[已更新为data_sync_scheduler.py]~~
+python src/data/data_sync_scheduler.py --mode status
 
 # 执行快速同步（最新数据）
-python src/data/sync_manager.py --mode quick
+<del>python src/data/sync_manager.py --mode quick</del> ~~[已更新为data_sync_scheduler.py]~~
+python src/data/data_sync_scheduler.py --mode quick
 
 # 执行完整同步
-python src/data/sync_manager.py --mode full --include-incremental
+<del>python src/data/sync_manager.py --mode full --include-incremental</del> ~~[已更新为data_sync_scheduler.py]~~
+python src/data/data_sync_scheduler.py --mode full --include-incremental
 
 # 清理旧数据
-python src/data/sync_manager.py --mode cleanup --cleanup-days 90
+<del>python src/data/sync_manager.py --mode cleanup --cleanup-days 90</del> ~~[已更新为data_sync_scheduler.py]~~
+python src/data/data_sync_scheduler.py --mode cleanup --cleanup-days 90
 ```
+-->
 
+<!--
 ## 详细使用指南
 
 ### Akshare数据同步
@@ -95,17 +106,144 @@ python src/data/akshare_sync.py --mode news --start-date 2024-01-01 --end-date 2
 python src/data/akshare_sync.py --mode attention --start-date 2024-01-01 --end-date 2024-01-07
 
 # 同步人气榜数据
-python src/data/akshare_sync.py --mode ranking --date 2024-01-07
+python src/data/akshare_sync.py --mode popularity --start-date 2024-01-01 --end-date 2024-01-07
 
-# 完整同步所有Akshare数据
-python src/data/akshare_sync.py --mode full --start-date 2024-01-01 --end-date 2024-01-07
-
-# 查看同步状态
-python src/data/akshare_sync.py --mode status
-
-# 清理旧数据
-python src/data/akshare_sync.py --mode cleanup --cleanup-days 90
+# 同步所有Akshare数据
+python src/data/akshare_sync.py --mode all --start-date 2024-01-01 --end-date 2024-01-07
 ```
+
+### 申万行业分类同步
+
+```bash
+# 更新申万行业分类数据
+python src/data/sw_classification_sync.py --mode update
+
+# 同步股票行业归属
+python src/data/sw_classification_sync.py --mode stock_mapping
+
+# 查看行业分类统计
+python src/data/sw_classification_sync.py --mode stats
+```
+-->
+
+<!--
+## 配置选项
+
+### 主配置文件 (config/data_sync.yaml)
+
+```yaml
+# 数据同步主配置
+main:
+  # 是否启用数据同步
+  enabled: true
+  # 并发任务数量
+  max_concurrent_tasks: 5
+  # 日志级别
+  log_level: INFO
+  # 告警通知邮箱
+  alert_email: support@stockschool.com
+
+# Akshare配置
+akshare:
+  # 是否启用Akshare数据源
+  enabled: true
+  # API调用间隔 (秒)
+  api_interval: 2
+  # 最大重试次数
+  max_retries: 3
+  # 重试间隔 (秒)
+  retry_interval: 5
+  # 超时时间 (秒)
+  timeout: 30
+  # 数据类型配置
+  data_types:
+    news: true
+    attention: true
+    popularity: true
+
+# 申万行业配置
+sw_classification:
+  enabled: true
+  # 同步频率 (天)黄
+  sync_frequency_days: 7
+
+# 数据库配置
+database:
+  # PostgreSQL连接信息
+  postgres:
+    host: localhost
+    port: 5432
+    user: stockschool
+    password: ${POSTGRES_PASSWORD}
+    database: stockschool
+  # Redis连接信息
+  redis:
+    host: localhost
+    port: 6379
+    db: 0
+```
+-->
+
+<!--
+## 数据质量控制
+
+### 数据验证规则
+
+1. **完整性检查** - 确保所有必填字段都有值
+2. **格式检查** - 验证数据格式是否符合预期（日期、数值等）
+3. **范围检查** - 确保数值在合理范围内
+4. **一致性检查** - 验证不同数据源之间的数据一致性
+5. **异常检测** - 使用3σ原则检测异常值
+
+### 数据质量报告
+
+```bash
+# 生成数据质量报告
+python src/data/quality_report.py --output data_quality_report.html
+```
+-->
+
+<!--
+## 常见问题
+
+1. **Q: 数据同步失败如何处理?**
+   A: 首先查看日志文件 (logs/data_sync.log) 中的错误信息，根据错误类型采取相应措施。常见问题包括API密钥无效、网络连接问题、数据库权限不足等。
+
+2. **Q: 如何提高数据同步速度?**
+   A: 可以尝试增加并发任务数量、优化网络连接、使用缓存机制减少重复计算等方法。
+-->
+
+3. **Q: 数据同步过程中如何避免API调用限制?**
+   A: 系统已内置API调用频率限制机制，会自动控制调用频率。也可以在配置文件中调整api_interval参数。
+
+4. **Q: 如何定期执行数据同步?**
+   A: 可以使用crontab或Windows任务计划程序定期执行同步命令，例如每天凌晨2点执行完整同步。
+
+5. **Q: 数据同步会占用大量存储空间吗?**
+   A: 系统采用增量更新机制，只会存储新数据和变更数据，同时提供数据清理功能，可以定期清理旧数据。
+
+## 性能优化建议
+
+1. **使用SSD存储** - 提高数据库读写性能
+2. **增加内存** - 提高Redis缓存命中率
+3. **优化网络连接** - 确保与数据源API的网络连接稳定
+4. **合理设置并发数** - 根据服务器性能调整并发任务数量
+5. **定期清理旧数据** - 减少数据库存储压力
+
+## 故障排除
+
+### 常见错误及解决方法
+
+| 错误类型 | 可能原因 | 解决方法 |
+|---------|---------|---------|
+| API调用失败 | 网络问题、API密钥无效 | 检查网络连接、验证API密钥 |
+| 数据库连接失败 | 数据库未启动、连接参数错误 | 检查数据库状态、验证连接参数 |
+| 数据格式错误 | 数据源返回格式变更 | 更新数据解析代码 |
+| 同步任务卡死 | 资源耗尽、死锁 | 重启同步服务、优化资源配置 |
+
+### 联系支持
+
+如果遇到无法解决的问题，请发送邮件至 [support@stockschool.com](mailto:support@stockschool.com)，并附上详细的错误日志。
 
 ### 申万行业分类管理
 
@@ -147,13 +285,15 @@ python src/data/incremental_update.py --mode status
 ### Python API
 
 ```python
-from src.data.sync_manager import DataSyncManager
+<del>from src.data.sync_manager import DataSyncManager</del> ~~[已更新为DataSyncScheduler]~~
+from src.data.data_sync_scheduler import DataSyncScheduler
 from src.data.akshare_sync import AkshareSynchronizer
 from src.data.industry_classification import IndustryClassificationManager
 from src.data.incremental_update import IncrementalUpdateManager
 
 # 统一同步管理
-manager = DataSyncManager()
+<del>manager = DataSyncManager()</del> ~~[已更新为DataSyncScheduler]~~
+manager = DataSyncScheduler()
 
 # 执行完整同步
 result = manager.full_sync(
@@ -229,7 +369,7 @@ sync_strategy:
     
   full:
     enabled: true
-    schedule: "0 2 * * 0"  # 每周日凌晨2点全量同步
+    schedule: "0 2 * * 0"  # 每周凌晨2点全量同步
 
 data_quality:
   outlier_detection:

@@ -1,30 +1,31 @@
+import os
+import sys
+
 #!/usr/bin/env python3
 """
 基本结构测试 - 不依赖外部库
 """
 
-import sys
-import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 
 def test_imports():
     """测试模块导入"""
     print("测试模块导入...")
-    
+
     try:
         # 测试SQLAlchemy模型导入
-        from src.models.monitoring import (
-            MonitoringMetric, SystemHealthStatus, 
-            AlertRecord, MonitoringConfig
-        )
+        from src.models.monitoring import AlertRecord, MonitoringConfig, MonitoringMetric, SystemHealthStatus
+
         print("✅ SQLAlchemy模型导入成功")
-        
+
         # 测试数据库迁移导入
         from src.database.migrations import MonitoringMigration
+
         print("✅ 数据库迁移模块导入成功")
-        
+
         return True
-        
+
     except ImportError as e:
         print(f"❌ 模块导入失败: {e}")
         return False
@@ -32,85 +33,95 @@ def test_imports():
         print(f"❌ 其他错误: {e}")
         return False
 
+
 def test_model_structure():
     """测试模型结构"""
     print("\n测试模型结构...")
-    
+
     try:
-        from src.models.monitoring import MonitoringMetric, AlertRecord
-        
+        from src.models.monitoring import AlertRecord, MonitoringMetric
+
         # 检查MonitoringMetric表结构
         metric_columns = [
-            'id', 'timestamp', 'metric_name', 'metric_type', 
-            'metric_value', 'metric_unit', 'labels', 'source_component'
+            "id",
+            "timestamp",
+            "metric_name",
+            "metric_type",
+            "metric_value",
+            "metric_unit",
+            "labels",
+            "source_component",
         ]
-        
+
         for col in metric_columns:
             if hasattr(MonitoringMetric, col):
                 print(f"✅ MonitoringMetric.{col} 存在")
             else:
                 print(f"❌ MonitoringMetric.{col} 不存在")
                 return False
-        
+
         # 检查AlertRecord表结构
-        alert_columns = [
-            'id', 'alert_id', 'alert_level', 'alert_type', 
-            'title', 'description', 'status', 'created_at'
-        ]
-        
+        alert_columns = ["id", "alert_id", "alert_level", "alert_type", "title", "description", "status", "created_at"]
+
         for col in alert_columns:
             if hasattr(AlertRecord, col):
                 print(f"✅ AlertRecord.{col} 存在")
             else:
                 print(f"❌ AlertRecord.{col} 不存在")
                 return False
-        
+
         return True
-        
+
     except Exception as e:
         print(f"❌ 模型结构测试失败: {e}")
         return False
 
+
 def test_migration_structure():
     """测试迁移结构"""
     print("\n测试迁移结构...")
-    
+
     try:
         from src.database.migrations import MonitoringMigration
-        
+
         # 检查迁移类方法
         migration_methods = [
-            'create_tables', 'drop_tables', 'check_tables_exist',
-            '_create_hypertables', '_create_additional_indexes', '_insert_initial_config'
+            "create_tables",
+            "drop_tables",
+            "check_tables_exist",
+            "_create_hypertables",
+            "_create_additional_indexes",
+            "_insert_initial_config",
         ]
-        
+
         for method in migration_methods:
             if hasattr(MonitoringMigration, method):
                 print(f"✅ MonitoringMigration.{method} 存在")
             else:
                 print(f"❌ MonitoringMigration.{method} 不存在")
                 return False
-        
+
         return True
-        
+
     except Exception as e:
         print(f"❌ 迁移结构测试失败: {e}")
         return False
 
+
 def test_file_structure():
     """测试文件结构"""
     print("\n测试文件结构...")
-    
+
     required_files = [
-        'src/models/__init__.py',
-        'src/models/monitoring.py',
-        'src/database/migrations.py',
-        'src/schemas/__init__.py',
-        'src/schemas/monitoring_schemas.py',
-        'src/tests/test_monitoring_models.py',
-        'src/tests/test_monitoring_schemas.py'
+        "src/models/__init__.py",
+        "src/models/monitoring.py",
+        "src/database/migrations.py",
+        "src/schemas/__init__.py",
+        "src/schemas/monitoring_schemas.py",
+        "src/tests/test_monitoring_models.py",
+        "src/tests/test_monitoring_schemas.py",
     ]
-    
+
     all_exist = True
     for file_path in required_files:
         if os.path.exists(file_path):
@@ -118,30 +129,26 @@ def test_file_structure():
         else:
             print(f"❌ {file_path} 不存在")
             all_exist = False
-    
+
     return all_exist
+
 
 def main():
     """主测试函数"""
     print("🚀 开始基本结构测试...")
-    
-    tests = [
-        test_file_structure,
-        test_imports,
-        test_model_structure,
-        test_migration_structure
-    ]
-    
+
+    tests = [test_file_structure, test_imports, test_model_structure, test_migration_structure]
+
     passed = 0
     total = len(tests)
-    
+
     for test_func in tests:
         if test_func():
             passed += 1
         print()  # 空行分隔
-    
+
     print(f"📊 测试结果: {passed}/{total} 个测试通过")
-    
+
     if passed == total:
         print("🎉 所有基本结构测试通过！")
         print("📝 任务2完成状态:")
@@ -154,6 +161,7 @@ def main():
     else:
         print("❌ 部分基本结构测试失败")
         return False
+
 
 if __name__ == "__main__":
     success = main()

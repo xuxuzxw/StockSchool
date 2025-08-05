@@ -1,40 +1,52 @@
-import os
-import sys
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
-from fastapi import FastAPI, HTTPException, Depends, Query, Path, BackgroundTasks, WebSocket
+
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Path, Query, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
-import uvicorn
 from loguru import logger
-import pandas as pd
+from pydantic import BaseModel, Field
 from sqlalchemy import text
-from src.config.unified_config import config
 
-# 添加项目根目录到路径
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from src.utils.db import get_db_engine
-from src.data.tushare_sync import TushareSynchronizer
-from src.compute.factor_engine import FactorEngine
-from src.compute.quality import DataQualityMonitor
-from src.features.feature_store import FeatureStore
-from src.strategy.evaluation import StrategyEvaluator
-from src.monitoring.performance import performance_manager
-from src.monitoring.alerts import AlertEngine
-from src.monitoring.api import router as monitoring_router
-from src.monitoring.websocket import MonitoringWebSocketHandler
-from src.monitoring import start_monitoring_system, stop_monitoring_system
-
-# 导入新的因子API路由
+from src.api.ai_strategy import router as ai_strategy_router
+from src.api.auth import auth_router
+from src.api.explainer_api import router as explainer_router
 from src.api.factor_api import router as factor_router
 from src.api.factor_management_api import router as factor_management_router
 from src.api.feature_store_api import router as feature_store_router
-from src.api.auth import auth_router
+from src.api.middleware import (
+    CORSMiddlewareEnhanced,
+    ErrorRecoveryMiddleware,
+    LoggingMiddleware,
+    MetricsMiddleware,
+    RateLimitMiddleware,
+)
+import os
+import sys
+import typing
+from typing import Optional, List
+
+import uvicorn
+import pandas as pd
+from fastapi import FastAPI, Depends, HTTPException
+from pydantic import BaseModel, Field
+
+# 添加项目根目录到路径
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
+from src.compute.factor_engine import FactorEngine
+from src.compute.quality import DataQualityMonitor
+from src.config.unified_config import config
+from src.data.tushare_sync import TushareSynchronizer
+from src.features.feature_store import FeatureStore
+from src.monitoring.alerts import AlertEngine
+from src.monitoring.api import start_monitoring_system, stop_monitoring_system
+from src.monitoring.performance import performance_manager
+from src.monitoring.websocket import router as monitoring_router
+from src.strategy.evaluation import StrategyEvaluator
+from src.utils.db import get_db_engine
+
+# 导入新的因子API路由
 # 导入AI策略API路由
-from src.api.ai_strategy import router as ai_strategy_router
-from src.api.explainer_api import router as explainer_router
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -45,14 +57,12 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# 添加CORS中间件
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # 生产环境应该限制具体域名
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# 添加中间件（按执行顺序）
+app.add_middleware(LoggingMiddleware)
+app.add_middleware(MetricsMiddleware)
+app.add_middleware(ErrorRecoveryMiddleware)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(CORSMiddlewareEnhanced)
 
 # 全局变量
 db_engine = None
@@ -179,20 +189,20 @@ def get_alert_engine():
 async def startup_event():
     """应用启动事件"""
     logger.info("StockSchool API 启动中...")
-    
+
     # 启动性能监控
     performance_manager.start()
-    
+
     # 初始化告警引擎
     get_alert_engine()
-    
+
     # 启动监控系统
     try:
         await start_monitoring_system()
         logger.info("监控系统启动成功")
     except Exception as e:
         logger.error(f"监控系统启动失败: {e}")
-    
+
     logger.info("StockSchool API 启动完成")
 
 # 注册新的API路由
@@ -223,21 +233,21 @@ async def websocket_endpoint(websocket: WebSocket):
 async def shutdown_event():
     """应用关闭事件"""
     logger.info("StockSchool API 关闭中...")
-    
+
     # 停止监控系统
     try:
         await stop_monitoring_system()
         logger.info("监控系统已停止")
     except Exception as e:
         logger.error(f"停止监控系统时出错: {e}")
-    
+
     # 停止性能监控
     performance_manager.stop()
-    
+
     # 停止告警引擎
     if alert_engine:
         alert_engine.stop()
-    
+
     logger.info("StockSchool API 已关闭")
 
 # 根路径
@@ -249,7 +259,7 @@ async def root():
         "version": "2.0.0",
         "features": [
             "因子计算与查询",
-            "因子有效性分析", 
+            "因子有效性分析",
             "策略回测与分析",
             "数据质量监控",
             "系统性能监控",
@@ -292,9 +302,9 @@ async def get_stocks_basic(
     market: Optional[str] = Query(None, description="市场类型"),
     industry: Optional[str] = Query(None, description="行业"),
     limit: int = Query(
-        config.get('api_params.default_limit', 100), 
-        ge=config.get('api_params.min_limit', 1), 
-        le=config.get('api_params.max_limit', 1000), 
+        config.get('api_params.default_limit', 100),
+        ge=config.get('api_params.min_limit', 1),
+        le=config.get('api_params.max_limit', 1000),
         description="返回数量限制"
     ),
     db_engine=Depends(get_database)
@@ -303,22 +313,22 @@ async def get_stocks_basic(
     try:
         query = "SELECT * FROM stock_basic WHERE 1=1"
         params = {}
-        
+
         if market:
             query += " AND market = :market"
             params['market'] = market
-        
+
         if industry:
             query += " AND industry = :industry"
             params['industry'] = industry
-        
+
         query += " LIMIT :limit"
         params['limit'] = limit
-        
+
         with db_engine.connect() as conn:
             result = conn.execute(text(query), params)
             stocks = result.fetchall()
-        
+
         return [
             StockBasicResponse(
                 ts_code=stock.ts_code,
@@ -331,7 +341,7 @@ async def get_stocks_basic(
             )
             for stock in stocks
         ]
-    
+
     except Exception as e:
         logger.error(f"获取股票基础信息失败: {e}")
         raise HTTPException(status_code=500, detail="获取股票基础信息失败")
@@ -343,9 +353,9 @@ async def get_stock_daily(
     start_date: Optional[str] = Query(None, description="开始日期 (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="结束日期 (YYYY-MM-DD)"),
     limit: int = Query(
-        config.get('api_params.default_limit', 100), 
-        ge=config.get('api_params.min_limit', 1), 
-        le=config.get('api_params.max_limit', 1000), 
+        config.get('api_params.default_limit', 100),
+        ge=config.get('api_params.min_limit', 1),
+        le=config.get('api_params.max_limit', 1000),
         description="返回数量限制"
     ),
     db_engine=Depends(get_database)
@@ -354,22 +364,22 @@ async def get_stock_daily(
     try:
         query = "SELECT * FROM stock_daily WHERE ts_code = :ts_code"
         params = {'ts_code': ts_code}
-        
+
         if start_date:
             query += " AND trade_date >= :start_date"
             params['start_date'] = start_date
-        
+
         if end_date:
             query += " AND trade_date <= :end_date"
             params['end_date'] = end_date
-        
+
         query += " ORDER BY trade_date DESC LIMIT :limit"
         params['limit'] = limit
-        
+
         with db_engine.connect() as conn:
             result = conn.execute(text(query), params)
             daily_data = result.fetchall()
-        
+
         return [
             StockDailyResponse(
                 ts_code=data.ts_code,
@@ -386,7 +396,7 @@ async def get_stock_daily(
             )
             for data in daily_data
         ]
-    
+
     except Exception as e:
         logger.error(f"获取股票日线数据失败: {e}")
         raise HTTPException(status_code=500, detail="获取股票日线数据失败")
@@ -399,9 +409,9 @@ async def get_factor_values(
     start_date: Optional[str] = Query(None, description="开始日期 (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="结束日期 (YYYY-MM-DD)"),
     limit: int = Query(
-        config.get('api_params.default_limit', 100), 
-        ge=config.get('api_params.min_limit', 1), 
-        le=config.get('api_params.max_limit', 1000), 
+        config.get('api_params.default_limit', 100),
+        ge=config.get('api_params.min_limit', 1),
+        le=config.get('api_params.max_limit', 1000),
         description="返回数量限制"
     ),
     db_engine=Depends(get_database)
@@ -410,26 +420,26 @@ async def get_factor_values(
     try:
         query = "SELECT * FROM factor_values WHERE factor_name = :factor_name"
         params = {'factor_name': factor_name}
-        
+
         if ts_code:
             query += " AND ts_code = :ts_code"
             params['ts_code'] = ts_code
-        
+
         if start_date:
             query += " AND trade_date >= :start_date"
             params['start_date'] = start_date
-        
+
         if end_date:
             query += " AND trade_date <= :end_date"
             params['end_date'] = end_date
-        
+
         query += " ORDER BY trade_date DESC, ts_code LIMIT :limit"
         params['limit'] = limit
-        
+
         with db_engine.connect() as conn:
             result = conn.execute(text(query), params)
             factor_data = result.fetchall()
-        
+
         return [
             FactorValueResponse(
                 ts_code=data.ts_code,
@@ -439,7 +449,7 @@ async def get_factor_values(
             )
             for data in factor_data
         ]
-    
+
     except Exception as e:
         logger.error(f"获取因子值失败: {e}")
         raise HTTPException(status_code=500, detail="获取因子值失败")
@@ -470,9 +480,9 @@ async def sync_stock_daily(
     try:
         if background_tasks:
             background_tasks.add_task(
-                syncer.sync_stock_daily, 
-                ts_code=ts_code, 
-                start_date=start_date, 
+                syncer.sync_stock_daily,
+                ts_code=ts_code,
+                start_date=start_date,
                 end_date=end_date
             )
             return {"message": f"股票 {ts_code} 日线数据同步任务已启动"}
@@ -522,7 +532,7 @@ async def check_data_quality(
     """检查数据质量"""
     try:
         quality_result = quality_monitor.check_stock_quality(ts_code)
-        
+
         return DataQualityResponse(
             ts_code=ts_code,
             completeness_score=quality_result['completeness_score'],
@@ -532,7 +542,7 @@ async def check_data_quality(
             overall_score=quality_result['overall_score'],
             check_date=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         )
-    
+
     except Exception as e:
         logger.error(f"检查数据质量失败: {e}")
         raise HTTPException(status_code=500, detail="检查数据质量失败")
@@ -548,12 +558,12 @@ async def evaluate_strategy(
     try:
         returns_series = pd.Series(returns_data)
         benchmark_series = pd.Series(benchmark_returns) if benchmark_returns else None
-        
+
         performance = strategy_evaluator.evaluate_strategy(
-            returns_series, 
+            returns_series,
             benchmark_series
         )
-        
+
         return StrategyPerformanceResponse(
             total_return=performance['total_return'],
             annual_return=performance['annual_return'],
@@ -562,7 +572,7 @@ async def evaluate_strategy(
             max_drawdown=performance['max_drawdown'],
             win_rate=performance['win_rate']
         )
-    
+
     except Exception as e:
         logger.error(f"评估策略表现失败: {e}")
         raise HTTPException(status_code=500, detail="评估策略表现失败")
