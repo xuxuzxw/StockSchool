@@ -1,0 +1,181 @@
+# 测试阶段配置文件
+# 支持动态配置测试阶段，无需修改代码
+
+phases:
+  infrastructure:
+    module_path: "src.acceptance.phases.infrastructure"
+    class_name: "InfrastructurePhase"
+    phase_name: "基础设施验收"
+    enabled: true
+    priority: 1
+    dependencies: []
+    timeout: 300  # 5分钟超时
+    retry_count: 3
+    description: "验证Docker服务、数据库连接、Redis连接等基础设施"
+    
+  data_service:
+    module_path: "src.acceptance.phases.data_service"
+    class_name: "DataServicePhase"
+    phase_name: "数据服务验收"
+    enabled: true
+    priority: 2
+    dependencies: ["infrastructure"]
+    timeout: 600  # 10分钟超时
+    retry_count: 2
+    description: "验证Tushare API连接、数据同步功能、数据质量检查"
+    
+  compute_engine:
+    module_path: "src.acceptance.phases.compute_engine"
+    class_name: "ComputeEnginePhase"
+    phase_name: "计算引擎验收"
+    enabled: true
+    priority: 3
+    dependencies: ["data_service"]
+    timeout: 900  # 15分钟超时
+    retry_count: 1
+    description: "验证因子计算引擎、技术指标计算、基本面因子计算"
+    
+  ai_service:
+    module_path: "src.acceptance.phases.ai_service"
+    class_name: "AIServicePhase"
+    phase_name: "AI服务验收"
+    enabled: true
+    priority: 4
+    dependencies: ["compute_engine"]
+    timeout: 1800  # 30分钟超时
+    retry_count: 1
+    description: "验证AI模型训练、预测功能、模型解释功能"
+    
+  external_ai_analysis:
+    module_path: "src.acceptance.phases.external_ai_analysis"
+    class_name: "ExternalAIAnalysisPhase"
+    phase_name: "外接AI分析验收"
+    enabled: true
+    priority: 5
+    dependencies: ["ai_service"]
+    timeout: 600  # 10分钟超时
+    retry_count: 2
+    description: "验证外接AI大模型API调用、股票深度分析、回测优化"
+    
+  api_service:
+    module_path: "src.acceptance.phases.api_service"
+    class_name: "APIServicePhase"
+    phase_name: "API服务验收"
+    enabled: true
+    priority: 6
+    dependencies: ["compute_engine"]
+    timeout: 300  # 5分钟超时
+    retry_count: 2
+    description: "验证FastAPI服务、接口功能、性能指标"
+    
+  monitoring:
+    module_path: "src.acceptance.phases.monitoring"
+    class_name: "MonitoringPhase"
+    phase_name: "监控系统验收"
+    enabled: true
+    priority: 7
+    dependencies: ["api_service"]
+    timeout: 300  # 5分钟超时
+    retry_count: 2
+    description: "验证监控系统、告警功能、性能监控"
+    
+  performance:
+    module_path: "src.acceptance.phases.performance"
+    class_name: "PerformancePhase"
+    phase_name: "性能基准验收"
+    enabled: true
+    priority: 8
+    dependencies: ["api_service", "compute_engine"]
+    timeout: 1200  # 20分钟超时
+    retry_count: 1
+    description: "验证系统性能指标、内存使用、CPU使用率"
+    
+  integration:
+    module_path: "src.acceptance.phases.integration"
+    class_name: "IntegrationPhase"
+    phase_name: "集成测试验收"
+    enabled: true
+    priority: 9
+    dependencies: ["performance"]
+    timeout: 1800  # 30分钟超时
+    retry_count: 1
+    description: "验证端到端集成功能、多用户并发、故障恢复"
+    
+  user_acceptance:
+    module_path: "src.acceptance.phases.user_acceptance"
+    class_name: "UserAcceptancePhase"
+    phase_name: "用户验收测试"
+    enabled: true
+    priority: 10
+    dependencies: ["integration"]
+    timeout: 600  # 10分钟超时
+    retry_count: 1
+    description: "验证用户体验、文档完整性、错误处理"
+    
+  code_quality:
+    module_path: "src.acceptance.phases.code_quality"
+    class_name: "CodeQualityPhase"
+    phase_name: "代码质量验收"
+    enabled: false  # 默认禁用，可选执行
+    priority: 11
+    dependencies: []
+    timeout: 900  # 15分钟超时
+    retry_count: 1
+    description: "验证代码质量、测试覆盖率、代码规范"
+    
+  security:
+    module_path: "src.acceptance.phases.security"
+    class_name: "SecurityPhase"
+    phase_name: "安全性验收"
+    enabled: true
+    priority: 12
+    dependencies: ["api_service"]
+    timeout: 600  # 10分钟超时
+    retry_count: 2
+    description: "验证API安全性、数据安全、权限管理"
+
+# 全局配置
+global_config:
+  # 默认超时时间（秒）
+  default_timeout: 300
+  
+  # 默认重试次数
+  default_retry_count: 1
+  
+  # 是否启用并行执行
+  enable_parallel_execution: false
+  
+  # 最大并行阶段数
+  max_parallel_phases: 3
+  
+  # 关键测试失败时是否终止
+  terminate_on_critical_failure: true
+  
+  # 关键测试列表
+  critical_tests:
+    - "docker_services"
+    - "database_connection"
+    - "redis_connection"
+    - "tushare_api_connection"
+  
+  # 性能监控配置
+  performance_monitoring:
+    enabled: true
+    collect_memory_stats: true
+    collect_cpu_stats: true
+    collect_timing_stats: true
+  
+  # 报告生成配置
+  reporting:
+    generate_json: true
+    generate_html: true
+    generate_markdown: true
+    generate_pdf: false
+    output_directory: "reports"
+  
+  # 日志配置
+  logging:
+    level: "INFO"
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    file_output: true
+    console_output: true

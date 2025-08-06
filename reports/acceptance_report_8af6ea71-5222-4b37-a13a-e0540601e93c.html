@@ -1,0 +1,104 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockSchool 验收测试报告</title>
+    <style>
+        
+        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+        .header { background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .meta-info p { margin: 5px 0; }
+        .summary { display: flex; justify-content: space-around; margin: 20px 0; gap: 10px; }
+        .metric { text-align: center; padding: 15px; border: 1px solid #ddd; border-radius: 8px; flex: 1; }
+        .metric h3 { margin: 0; font-size: 2em; }
+        .metric p { margin: 5px 0 0 0; color: #666; }
+        .passed { background-color: #d4edda; border-color: #c3e6cb; }
+        .failed { background-color: #f8d7da; border-color: #f5c6cb; }
+        .skipped { background-color: #fff3cd; border-color: #ffeaa7; }
+        .phase-results { margin: 20px 0; }
+        .phase { margin: 15px 0; padding: 15px; border-left: 4px solid #007bff; background-color: #f8f9fa; }
+        .test-result { margin: 8px 0; padding: 8px; border-radius: 4px; }
+        .test-result.passed { background-color: #d4edda; }
+        .test-result.failed { background-color: #f8d7da; }
+        .test-result.skipped { background-color: #fff3cd; }
+        .recommendations { background-color: #e9ecef; padding: 15px; border-radius: 8px; margin-top: 20px; }
+        .performance-metrics { background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 20px; }
+        
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>StockSchool 验收测试报告</h1>
+        <div class="meta-info">
+            <p><strong>测试会话ID:</strong> 8af6ea71-5222-4b37-a13a-e0540601e93c</p>
+            <p><strong>开始时间:</strong> 2025-08-06 04:49:00</p>
+            <p><strong>结束时间:</strong> 2025-08-06 04:49:13</p>
+            <p><strong>整体结果:</strong> <span class="failed">失败</span></p>
+        </div>
+    </div>
+    
+    <div class="summary">
+        <div class="metric passed">
+            <h3>1</h3>
+            <p>通过测试</p>
+        </div>
+        <div class="metric failed">
+            <h3>7</h3>
+            <p>失败测试</p>
+        </div>
+        <div class="metric skipped">
+            <h3>0</h3>
+            <p>跳过测试</p>
+        </div>
+        <div class="metric">
+            <h3>8</h3>
+            <p>总测试数</p>
+        </div>
+    </div>
+    
+    <div class="phase-results">
+        <h2>测试阶段结果</h2>
+        
+        <div class="phase">
+            <h3>基础设施验收 (1/8 通过)</h3>
+
+            <div class="test-result passed">
+                <strong>docker_daemon_check</strong> - 通过 (0.05s)
+</div>
+            <div class="test-result failed">
+                <strong>postgres_container_check</strong> - 失败 (0.01s)
+<br><small style='color: #dc3545;'>错误: PostgreSQL容器不存在，请先启动Docker Compose</small></div>
+            <div class="test-result failed">
+                <strong>redis_container_check</strong> - 失败 (0.00s)
+<br><small style='color: #dc3545;'>错误: Redis容器不存在，请先启动Docker Compose</small></div>
+            <div class="test-result failed">
+                <strong>network_connectivity_check</strong> - 失败 (4.10s)
+<br><small style='color: #dc3545;'>错误: 网络连通性检查失败: 部分服务端口不可访问: postgres(localhost:5433), redis(localhost:6380)</small></div>
+            <div class="test-result failed">
+                <strong>postgres_connection_check</strong> - 失败 (4.10s)
+<br><small style='color: #dc3545;'>错误: PostgreSQL连接失败: PostgreSQL连接失败: connection to server at "localhost" (::1), port 5433 failed: Connection refused (0x0000274D/10061)
+	Is the server running on that host and accepting TCP/IP connections?
+connection to server at "localhost" (127.0.0.1), port 5433 failed: Connection refused (0x0000274D/10061)
+	Is the server running on that host and accepting TCP/IP connections?
+</small></div>
+            <div class="test-result failed">
+                <strong>redis_connection_check</strong> - 失败 (4.09s)
+<br><small style='color: #dc3545;'>错误: Redis连接失败: Redis连接失败: Error 10061 connecting to localhost:6380. 由于目标计算机积极拒绝，无法连接。.</small></div>
+            <div class="test-result failed">
+                <strong>environment_variables_check</strong> - 失败 (0.00s)
+<br><small style='color: #dc3545;'>错误: 缺少必需的环境变量: DATABASE_URL (数据库连接URL), REDIS_URL (Redis连接URL)</small></div>
+            <div class="test-result failed">
+                <strong>python_dependencies_check</strong> - 失败 (0.18s)
+<br><small style='color: #dc3545;'>错误: 缺少关键Python包: psycopg2</small></div></div>
+    </div>
+    
+    
+    
+    <div class="recommendations">
+        <h2>改进建议</h2>
+        <ol>
+<li>建议检查Docker服务状态和网络连接配置</li><li>整体通过率较低，建议进行全面的系统检查和优化</li></ol></div>
+</body>
+</html>

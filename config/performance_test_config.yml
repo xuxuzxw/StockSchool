@@ -1,0 +1,51 @@
+# 性能测试配置文件
+performance_test:
+  # 性能阈值配置
+  thresholds:
+    memory_limit_gb: 16
+    cpu_usage_limit: 80
+    disk_io_min_mbps: 100
+    db_query_timeout_seconds: 5
+    gpu_acceleration_min_factor: 2
+    api_response_time_ms: 1000
+    concurrent_users: 100
+  
+  # 系统基准测试配置
+  system_baseline:
+    enabled: true
+    timeout_seconds: 30
+  
+  # 负载测试配置
+  load_test:
+    enabled: true
+    duration_seconds: 60
+    thread_count: 4
+    sample_interval: 5
+  
+  # 压力测试配置
+  stress_test:
+    enabled: true
+    duration_seconds: 30
+    thread_count: 8
+    memory_blocks_limit: 100
+  
+  # 稳定性测试配置
+  stability_test:
+    enabled: true
+    duration_seconds: 120
+    total_operations: 1000
+    max_error_rate: 0.01
+  
+  # 数据库性能测试配置
+  database_test:
+    enabled: true
+    connection_attempts: 20
+    simple_query_count: 10
+    complex_query_count: 5
+    max_connection_time_ms: 1000
+  
+  # GPU性能测试配置
+  gpu_test:
+    enabled: false  # 默认禁用，需要GPU环境
+    min_acceleration_factor: 2
+    test_data_size: 10000
